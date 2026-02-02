@@ -1142,7 +1142,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kd2JoY21oenBjdmt0a3NkY295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMTUwOTcsImV4cCI6MjA4NTU5MTA5N30.2GGpCETycqNrR7wsv7dTve2K93dMx1lLtWKiDIeqGYY';
 
         // Supabaseクライアント初期化
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // ===== データ =====
         let users = [];
@@ -1220,17 +1220,17 @@
                 showLoading(true);
 
                 // ユーザー読み込み
-                const { data: usersData, error: usersError } = await supabase.from('users').select('*');
+                const { data: usersData, error: usersError } = await db.from('users').select('*');
                 if (usersError) throw usersError;
                 users = usersData || [];
 
                 // 顧客読み込み
-                const { data: customersData, error: customersError } = await supabase.from('customers').select('*');
+                const { data: customersData, error: customersError } = await db.from('customers').select('*');
                 if (customersError) throw customersError;
                 customers = customersData || [];
 
                 // 見積読み込み
-                const { data: estimatesData, error: estimatesError } = await supabase.from('estimates').select('*').order('created_at', { ascending: false });
+                const { data: estimatesData, error: estimatesError } = await db.from('estimates').select('*').order('created_at', { ascending: false });
                 if (estimatesError) throw estimatesError;
                 estimates = (estimatesData || []).map(e => ({
                     id: e.id,
@@ -1257,7 +1257,7 @@
                 }));
 
                 // 通知読み込み
-                const { data: notificationsData, error: notificationsError } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
+                const { data: notificationsData, error: notificationsError } = await db.from('notifications').select('*').order('created_at', { ascending: false });
                 if (notificationsError) throw notificationsError;
                 notifications = (notificationsData || []).map(n => ({
                     id: n.id,
@@ -1449,7 +1449,7 @@
             const today = new Date().toISOString().split('T')[0];
 
             try {
-                const { data, error } = await supabase.from('estimates').insert({
+                const { data, error } = await db.from('estimates').insert({
                     customer_name: '',
                     project_name: '新規見積',
                     quote_date: today,
@@ -1553,7 +1553,7 @@
             const total = calculateTotalAmount();
 
             try {
-                const { error } = await supabase.from('estimates').update({
+                const { error } = await db.from('estimates').update({
                     customer_id: updatedBasic.customerId,
                     customer_name: updatedBasic.customerName,
                     project_name: updatedBasic.projectName,
@@ -1588,7 +1588,7 @@
         async function deleteEstimate(id) {
             if (confirm('この見積を削除しますか？')) {
                 try {
-                    const { error } = await supabase.from('estimates').delete().eq('id', id);
+                    const { error } = await db.from('estimates').delete().eq('id', id);
                     if (error) throw error;
 
                     estimates = estimates.filter(e => e.id !== id);
@@ -1792,7 +1792,7 @@
         // ===== 通知 =====
         async function addNotification(userId, type, title, message, estimateId) {
             try {
-                const { data, error } = await supabase.from('notifications').insert({
+                const { data, error } = await db.from('notifications').insert({
                     user_id: userId,
                     type: type,
                     title: title,
@@ -2284,7 +2284,7 @@
             try {
                 if (editingCustomerId) {
                     // 更新
-                    const { error } = await supabase.from('customers').update(customerData).eq('id', editingCustomerId);
+                    const { error } = await db.from('customers').update(customerData).eq('id', editingCustomerId);
                     if (error) throw error;
 
                     const c = customers.find(x => x.id === editingCustomerId);
@@ -2296,7 +2296,7 @@
                         return;
                     }
 
-                    const { data, error } = await supabase.from('customers').insert(customerData).select().single();
+                    const { data, error } = await db.from('customers').insert(customerData).select().single();
                     if (error) throw error;
 
                     customers.push({ id: data.id, ...customerData });
@@ -2314,7 +2314,7 @@
         async function deleteCustomer(customerId) {
             if (confirm('この顧客を削除しますか？')) {
                 try {
-                    const { error } = await supabase.from('customers').delete().eq('id', customerId);
+                    const { error } = await db.from('customers').delete().eq('id', customerId);
                     if (error) throw error;
 
                     customers = customers.filter(c => c.id !== customerId);
