@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ベステラ 見積管理システム v2</title>
+    <title>ベステラ 見積管理システム v3 (Supabase版)</title>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'メイリオ', 'Meiryo', sans-serif; background-color: #f0f4f8; color: #333; font-size: 14px; }
@@ -1134,23 +1136,17 @@
     </div>
 
     <script>
+        // ===== Supabase設定 =====
+        // ★★★ 以下の2つを自分のSupabaseプロジェクトの値に変更してください ★★★
+        const SUPABASE_URL = 'https://ndwbhcmhzpcvktksdcoy.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kd2JoY21oenBjdmt0a3NkY295Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0NzUxMzcsImV4cCI6MjA1NDA1MTEzN30.sb_publishable_2QX-a3MmwoA64VTLR3HanQ_flg51SkD';
+
+        // Supabaseクライアント初期化
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         // ===== データ =====
-        let users = [
-            { empId: '1001', name: '山田太郎', email: 'yamada@besterra.co.jp', role: 'admin', password: '0001' },
-            { empId: '1002', name: '鈴木一郎', email: 'suzuki@besterra.co.jp', role: 'user', password: '0001' },
-            { empId: '1003', name: '田中花子', email: 'tanaka@besterra.co.jp', role: 'user', password: '0001' },
-            { empId: '1004', name: '佐藤次郎', email: 'sato@besterra.co.jp', role: 'user', password: '0001' },
-            { empId: '1005', name: '高橋美咲', email: 'takahashi@besterra.co.jp', role: 'admin', password: '0001' }
-        ];
-
-        let customers = [
-            { id: 1, code: 'C001', name: '△△建設株式会社', kana: 'サンカクサンカクケンセツ', zip: '100-0001', address: '東京都千代田区千代田1-1-1', tel: '03-1234-5678', email: 'info@sankaku-kensetsu.co.jp', contact: '営業部 山本様' },
-            { id: 2, code: 'C002', name: '◇◇工業株式会社', kana: 'ヒシヒシコウギョウ', zip: '210-0001', address: '神奈川県川崎市川崎区本町1-2-3', tel: '044-234-5678', email: 'contact@hishi-kogyo.co.jp', contact: '施設管理部 佐々木様' },
-            { id: 3, code: 'C003', name: '○○商事株式会社', kana: 'マルマルショウジ', zip: '530-0001', address: '大阪府大阪市北区梅田2-3-4', tel: '06-345-6789', email: 'shoji@marumaru.co.jp', contact: '総務部 井上様' },
-            { id: 4, code: 'C004', name: '株式会社エネルギーサービス', kana: 'エネルギーサービス', zip: '460-0001', address: '愛知県名古屋市中区栄3-4-5', tel: '052-456-7890', email: 'info@energy-service.co.jp', contact: '設備課 木村様' },
-            { id: 5, code: 'C005', name: '北関東プラント株式会社', kana: 'キタカントウプラント', zip: '330-0001', address: '埼玉県さいたま市浦和区高砂1-5-6', tel: '048-567-8901', email: 'plant@kitakanto.co.jp', contact: '工務部 中村様' }
-        ];
-
+        let users = [];
+        let customers = [];
         let estimates = [];
         let notifications = [];
         let currentUser = null;
@@ -1160,6 +1156,7 @@
         let currentFilter = '';
         let editingUserId = null;
         let editingCustomerId = null;
+        let isLoading = false;
 
         const officeData = {
             '本社': { zip: '135-0023', address: '東京都江東区平野3-2-6', tel: '03-3630-5555' },
@@ -1177,25 +1174,30 @@
         };
 
         // ===== 初期化 =====
-        document.addEventListener('DOMContentLoaded', function() {
-            loadFromLocalStorage();
-            if (estimates.length === 0) createSampleEstimates();
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Supabase接続確認
+            if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+                alert('Supabaseの設定が必要です。\\nindex.htmlのSUPABASE_URLとSUPABASE_ANON_KEYを設定してください。');
+                return;
+            }
+
+            await loadFromSupabase();
             initPeriodSelects();
             document.getElementById('loginPassword').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') login();
             });
 
             // セッション復元（F5対応）
-            restoreSession();
+            await restoreSession();
         });
 
-        function restoreSession() {
+        async function restoreSession() {
             const savedUser = sessionStorage.getItem('besterra_currentUser');
             if (savedUser) {
                 const userData = JSON.parse(savedUser);
-                const user = users.find(u => u.empId === userData.empId);
+                const user = users.find(u => u.emp_id === userData.empId);
                 if (user) {
-                    currentUser = user;
+                    currentUser = { empId: user.emp_id, name: user.name, email: user.email, role: user.role, password: user.password };
                     document.getElementById('loginScreen').style.display = 'none';
                     document.getElementById('appContainer').classList.add('active');
                     document.getElementById('currentUserName').textContent = user.name;
@@ -1212,43 +1214,96 @@
             }
         }
 
-        function loadFromLocalStorage() {
-            const u = localStorage.getItem('besterra_users');
-            const e = localStorage.getItem('besterra_estimates');
-            const n = localStorage.getItem('besterra_notifications');
-            const c = localStorage.getItem('besterra_customers');
-            if (u) users = JSON.parse(u);
-            if (e) estimates = JSON.parse(e);
-            if (n) notifications = JSON.parse(n);
-            if (c) customers = JSON.parse(c);
+        // ===== Supabaseデータ読み込み =====
+        async function loadFromSupabase() {
+            try {
+                showLoading(true);
+
+                // ユーザー読み込み
+                const { data: usersData, error: usersError } = await supabase.from('users').select('*');
+                if (usersError) throw usersError;
+                users = usersData || [];
+
+                // 顧客読み込み
+                const { data: customersData, error: customersError } = await supabase.from('customers').select('*');
+                if (customersError) throw customersError;
+                customers = customersData || [];
+
+                // 見積読み込み
+                const { data: estimatesData, error: estimatesError } = await supabase.from('estimates').select('*').order('created_at', { ascending: false });
+                if (estimatesError) throw estimatesError;
+                estimates = (estimatesData || []).map(e => ({
+                    id: e.id,
+                    basic: {
+                        customerId: e.customer_id,
+                        customerName: e.customer_name,
+                        projectName: e.project_name,
+                        quoteDate: e.quote_date,
+                        siteAddress: e.site_address,
+                        periodStart: e.period_start,
+                        periodEnd: e.period_end,
+                        office: e.office
+                    },
+                    status: e.status,
+                    total: e.total,
+                    categories: e.categories || [],
+                    expenses: e.expenses || {},
+                    creatorId: e.creator_id,
+                    approverId: e.approver_id,
+                    createdAt: e.created_at?.split('T')[0],
+                    updatedAt: e.updated_at?.split('T')[0],
+                    submittedAt: e.submitted_at?.split('T')[0],
+                    approvedAt: e.approved_at?.split('T')[0]
+                }));
+
+                // 通知読み込み
+                const { data: notificationsData, error: notificationsError } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
+                if (notificationsError) throw notificationsError;
+                notifications = (notificationsData || []).map(n => ({
+                    id: n.id,
+                    userId: n.user_id,
+                    type: n.type,
+                    title: n.title,
+                    message: n.message,
+                    estimateId: n.estimate_id,
+                    read: n.read,
+                    createdAt: n.created_at
+                }));
+
+                console.log('Supabaseからデータを読み込みました');
+                showLoading(false);
+            } catch (error) {
+                console.error('データ読み込みエラー:', error);
+                showLoading(false);
+                alert('データの読み込みに失敗しました: ' + error.message);
+            }
         }
 
+        function showLoading(show) {
+            isLoading = show;
+            // ローディング表示（必要に応じて実装）
+        }
+
+        // 互換性のための関数（使用しない）
         function saveToLocalStorage() {
-            localStorage.setItem('besterra_users', JSON.stringify(users));
-            localStorage.setItem('besterra_estimates', JSON.stringify(estimates));
-            localStorage.setItem('besterra_notifications', JSON.stringify(notifications));
-            localStorage.setItem('besterra_customers', JSON.stringify(customers));
+            // Supabase版では使用しない
         }
 
         function createSampleEstimates() {
-            estimates = [
-                { id: 1, basic: { customerName: '△△建設株式会社', projectName: '○○プラント解体工事', quoteDate: '2026-02-02', siteAddress: '千葉県市原市', office: '千葉事務所' }, status: 'draft', total: 16972032, categories: [], creatorId: '1002', approverId: null, createdAt: '2026-02-02', updatedAt: '2026-02-02' },
-                { id: 2, basic: { customerName: '◇◇工業株式会社', projectName: '□□設備撤去工事', quoteDate: '2026-01-28', siteAddress: '神奈川県川崎市', office: '京浜事務所' }, status: 'pending', total: 8500000, categories: [], creatorId: '1003', approverId: '1001', createdAt: '2026-01-25', updatedAt: '2026-01-28', submittedAt: '2026-01-28' },
-                { id: 3, basic: { customerName: '○○商事株式会社', projectName: '××工場改修工事', quoteDate: '2026-01-20', siteAddress: '広島県福山市', office: '西日本事務所' }, status: 'approved', total: 22000000, categories: [], creatorId: '1004', approverId: '1005', createdAt: '2026-01-15', updatedAt: '2026-01-22', approvedAt: '2026-01-22' }
-            ];
-            saveToLocalStorage();
+            // Supabase版ではSQLで初期データを投入するため、この関数は使用しない
         }
 
         // ===== ログイン =====
         function login() {
             const empId = document.getElementById('loginId').value;
             const password = document.getElementById('loginPassword').value;
-            const user = users.find(u => u.empId === empId && u.password === password);
+            // Supabaseのスネークケース（emp_id）に対応
+            const user = users.find(u => u.emp_id === empId && u.password === password);
 
             if (user) {
-                currentUser = user;
+                currentUser = { empId: user.emp_id, name: user.name, email: user.email, role: user.role, password: user.password };
                 // セッションに保存（F5対応）
-                sessionStorage.setItem('besterra_currentUser', JSON.stringify({ empId: user.empId }));
+                sessionStorage.setItem('besterra_currentUser', JSON.stringify({ empId: user.emp_id }));
 
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('appContainer').classList.add('active');
@@ -1310,7 +1365,7 @@
 
             const tbody = document.getElementById('recent-estimates');
             tbody.innerHTML = estimates.slice(0, 5).map(e => {
-                const creator = users.find(u => u.empId === e.creatorId);
+                const creator = users.find(u => u.emp_id === e.creatorId);
                 return `
                     <tr class="clickable" onclick="editEstimate(${e.id})">
                         <td>${e.basic.projectName || '-'}</td>
@@ -1353,8 +1408,8 @@
 
             const tbody = document.getElementById('all-estimates');
             tbody.innerHTML = filtered.map(e => {
-                const creator = users.find(u => u.empId === e.creatorId);
-                const approver = users.find(u => u.empId === e.approverId);
+                const creator = users.find(u => u.emp_id === e.creatorId);
+                const approver = users.find(u => u.emp_id === e.approverId);
                 return `
                     <tr class="clickable" onclick="editEstimate(${e.id})">
                         <td>${e.basic.projectName || '-'}</td>
@@ -1379,7 +1434,7 @@
             );
             const tbody = document.getElementById('all-estimates');
             tbody.innerHTML = filtered.map(e => {
-                const creator = users.find(u => u.empId === e.creatorId);
+                const creator = users.find(u => u.emp_id === e.creatorId);
                 return `<tr class="clickable" onclick="editEstimate(${e.id})">
                     <td>${e.basic.projectName || '-'}</td><td>${e.basic.customerName || '-'}</td>
                     <td style="text-align:right;">${formatCurrency(e.total||0)}</td>
@@ -1390,23 +1445,44 @@
         }
 
         // ===== 新規作成・編集 =====
-        function createNewEstimate() {
-            const newId = estimates.length > 0 ? Math.max(...estimates.map(e => e.id)) + 1 : 1;
+        async function createNewEstimate() {
             const today = new Date().toISOString().split('T')[0];
-            estimates.unshift({
-                id: newId,
-                basic: { customerName: '', projectName: '', quoteDate: today, siteAddress: '', office: '', periodStart: '', periodEnd: '' },
-                status: 'draft',
-                total: 0,
-                categories: [],
-                expenses: { safetyRate: 2, overheadRate: 15, laborRate: 24 },
-                creatorId: currentUser.empId,
-                approverId: null,
-                createdAt: today,
-                updatedAt: today
-            });
-            saveToLocalStorage();
-            editEstimate(newId);
+
+            try {
+                const { data, error } = await supabase.from('estimates').insert({
+                    customer_name: '',
+                    project_name: '新規見積',
+                    quote_date: today,
+                    site_address: '',
+                    office: '',
+                    status: 'draft',
+                    total: 0,
+                    categories: [],
+                    expenses: { safetyRate: 2, overheadRate: 15, laborRate: 24 },
+                    creator_id: currentUser.empId
+                }).select().single();
+
+                if (error) throw error;
+
+                // ローカル配列に追加
+                estimates.unshift({
+                    id: data.id,
+                    basic: { customerName: '', projectName: '新規見積', quoteDate: today, siteAddress: '', office: '', periodStart: '', periodEnd: '' },
+                    status: 'draft',
+                    total: 0,
+                    categories: [],
+                    expenses: { safetyRate: 2, overheadRate: 15, laborRate: 24 },
+                    creatorId: currentUser.empId,
+                    approverId: null,
+                    createdAt: today,
+                    updatedAt: today
+                });
+
+                editEstimate(data.id);
+            } catch (error) {
+                console.error('見積作成エラー:', error);
+                alert('見積の作成に失敗しました: ' + error.message);
+            }
         }
 
         function editEstimate(id) {
@@ -1454,12 +1530,12 @@
             showEditTab('basic');
         }
 
-        function saveCurrentEstimate() {
+        async function saveCurrentEstimate() {
             if (!currentEstimateId) return;
             const e = estimates.find(x => x.id === currentEstimateId);
             if (!e) return;
 
-            e.basic = {
+            const updatedBasic = {
                 customerId: parseInt(document.getElementById('customerSelect').value) || null,
                 customerName: getCustomerName(),
                 quoteDate: document.getElementById('quoteDate').value,
@@ -1469,39 +1545,72 @@
                 periodEnd: getPeriodValue('periodEnd'),
                 office: document.getElementById('office').value
             };
-            e.categories = categories;
-            e.expenses = {
+            const updatedExpenses = {
                 safetyRate: parseFloat(document.getElementById('safetyRate').value),
                 overheadRate: parseFloat(document.getElementById('overheadRate').value),
                 laborRate: parseFloat(document.getElementById('laborRate').value)
             };
-            e.total = calculateTotalAmount();
-            e.updatedAt = new Date().toISOString().split('T')[0];
+            const total = calculateTotalAmount();
 
-            saveToLocalStorage();
-            alert('保存しました');
-            document.getElementById('edit-page-title').textContent = e.basic.projectName || '新規見積';
+            try {
+                const { error } = await supabase.from('estimates').update({
+                    customer_id: updatedBasic.customerId,
+                    customer_name: updatedBasic.customerName,
+                    project_name: updatedBasic.projectName,
+                    quote_date: updatedBasic.quoteDate || null,
+                    site_address: updatedBasic.siteAddress,
+                    period_start: updatedBasic.periodStart || null,
+                    period_end: updatedBasic.periodEnd || null,
+                    office: updatedBasic.office,
+                    categories: categories,
+                    expenses: updatedExpenses,
+                    total: total,
+                    updated_at: new Date().toISOString()
+                }).eq('id', currentEstimateId);
+
+                if (error) throw error;
+
+                // ローカル配列も更新
+                e.basic = updatedBasic;
+                e.categories = categories;
+                e.expenses = updatedExpenses;
+                e.total = total;
+                e.updatedAt = new Date().toISOString().split('T')[0];
+
+                alert('保存しました');
+                document.getElementById('edit-page-title').textContent = e.basic.projectName || '新規見積';
+            } catch (error) {
+                console.error('保存エラー:', error);
+                alert('保存に失敗しました: ' + error.message);
+            }
         }
 
-        function deleteEstimate(id) {
+        async function deleteEstimate(id) {
             if (confirm('この見積を削除しますか？')) {
-                estimates = estimates.filter(e => e.id !== id);
-                saveToLocalStorage();
+                try {
+                    const { error } = await supabase.from('estimates').delete().eq('id', id);
+                    if (error) throw error;
 
-                // 編集中の見積が削除された場合は一覧に戻る
-                if (currentEstimateId === id) {
-                    currentEstimateId = null;
+                    estimates = estimates.filter(e => e.id !== id);
+
+                    // 編集中の見積が削除された場合は一覧に戻る
+                    if (currentEstimateId === id) {
+                        currentEstimateId = null;
+                    }
+
+                    // 即時UI更新
+                    showPage('list');
+                } catch (error) {
+                    console.error('削除エラー:', error);
+                    alert('削除に失敗しました: ' + error.message);
                 }
-
-                // 即時UI更新
-                showPage('list');
             }
         }
 
         // ===== ワークフロー =====
         function updateWorkflowDisplay(e) {
-            const creator = users.find(u => u.empId === e.creatorId);
-            const approver = users.find(u => u.empId === e.approverId);
+            const creator = users.find(u => u.emp_id === e.creatorId);
+            const approver = users.find(u => u.emp_id === e.approverId);
             const isCreator = currentUser.empId === e.creatorId;
             const isApprover = currentUser.empId === e.approverId;
 
@@ -1556,8 +1665,8 @@
 
         function openApprovalModal() {
             const select = document.getElementById('approverSelect');
-            select.innerHTML = users.filter(u => u.empId !== currentUser.empId).map(u =>
-                `<option value="${u.empId}">${u.name}（${u.empId}）</option>`
+            select.innerHTML = users.filter(u => u.emp_id !== currentUser.empId).map(u =>
+                `<option value="${u.emp_id}">${u.name}（${u.emp_id}）</option>`
             ).join('');
             document.getElementById('approvalComment').value = '';
             document.getElementById('approvalModal').classList.add('active');
@@ -1575,7 +1684,7 @@
             e.updatedAt = e.submittedAt;
 
             // 承認者に通知
-            const approver = users.find(u => u.empId === approverId);
+            const approver = users.find(u => u.emp_id === approverId);
             addNotification(approverId, 'request', `${currentUser.name}さんから承認依頼`, `「${e.basic.projectName}」の承認をお願いします。`, e.id);
 
             // メール送信シミュレーション
@@ -1609,7 +1718,7 @@
             if (!e) return;
 
             const today = new Date().toISOString().split('T')[0];
-            const creator = users.find(u => u.empId === e.creatorId);
+            const creator = users.find(u => u.emp_id === e.creatorId);
 
             if (action === 'approve') {
                 e.status = 'approved';
@@ -1660,7 +1769,7 @@
             const pending = estimates.filter(e => e.status === 'pending' && e.approverId === currentUser.empId);
             const tbody = document.getElementById('approval-list');
             tbody.innerHTML = pending.map(e => {
-                const creator = users.find(u => u.empId === e.creatorId);
+                const creator = users.find(u => u.emp_id === e.creatorId);
                 return `
                     <tr>
                         <td>${e.basic.projectName || '-'}</td>
@@ -1681,18 +1790,32 @@
         }
 
         // ===== 通知 =====
-        function addNotification(userId, type, title, message, estimateId) {
-            notifications.unshift({
-                id: Date.now(),
-                userId: userId,
-                type: type,
-                title: title,
-                message: message,
-                estimateId: estimateId,
-                read: false,
-                createdAt: new Date().toISOString()
-            });
-            saveToLocalStorage();
+        async function addNotification(userId, type, title, message, estimateId) {
+            try {
+                const { data, error } = await supabase.from('notifications').insert({
+                    user_id: userId,
+                    type: type,
+                    title: title,
+                    message: message,
+                    estimate_id: estimateId,
+                    read: false
+                }).select().single();
+
+                if (error) throw error;
+
+                notifications.unshift({
+                    id: data.id,
+                    userId: userId,
+                    type: type,
+                    title: title,
+                    message: message,
+                    estimateId: estimateId,
+                    read: false,
+                    createdAt: data.created_at
+                });
+            } catch (error) {
+                console.error('通知作成エラー:', error);
+            }
         }
 
         function renderNotifications() {
@@ -1739,13 +1862,13 @@
             const tbody = document.getElementById('user-list');
             tbody.innerHTML = users.map(u => `
                 <tr>
-                    <td>${u.empId}</td>
+                    <td>${u.emp_id}</td>
                     <td>${u.name}</td>
                     <td>${u.email}</td>
                     <td>${u.role === 'admin' ? '管理者' : '一般ユーザー'}</td>
                     <td>
-                        <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.empId}')">編集</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.empId}')">削除</button>
+                        <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.emp_id}')">編集</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.emp_id}')">削除</button>
                     </td>
                 </tr>
             `).join('');
@@ -1756,7 +1879,7 @@
             if (empId) {
                 const u = users.find(x => x.empId === empId);
                 document.getElementById('userModalTitle').textContent = 'ユーザー編集';
-                document.getElementById('userEmpId').value = u.empId;
+                document.getElementById('userEmpId').value = u.emp_id;
                 document.getElementById('userEmpId').disabled = true;
                 document.getElementById('userName').value = u.name;
                 document.getElementById('userEmail').value = u.email;
@@ -1793,7 +1916,7 @@
                 u.role = role;
                 if (password) u.password = password;
             } else {
-                if (users.find(u => u.empId === empId)) {
+                if (users.find(u => u.emp_id === empId)) {
                     alert('この社員番号は既に使用されています');
                     return;
                 }
@@ -1812,7 +1935,7 @@
                 return;
             }
             if (confirm('このユーザーを削除しますか？')) {
-                users = users.filter(u => u.empId !== empId);
+                users = users.filter(u => u.emp_id !== empId);
                 saveToLocalStorage();
                 renderUserList();
             }
@@ -2138,7 +2261,7 @@
             document.getElementById('customerModal').classList.add('active');
         }
 
-        function saveCustomer() {
+        async function saveCustomer() {
             const code = document.getElementById('custCode').value.trim();
             const name = document.getElementById('custName').value.trim();
 
@@ -2147,46 +2270,59 @@
                 return;
             }
 
-            if (editingCustomerId) {
-                const c = customers.find(x => x.id === editingCustomerId);
-                c.name = name;
-                c.kana = document.getElementById('custKana').value.trim();
-                c.zip = document.getElementById('custZip').value.trim();
-                c.address = document.getElementById('custAddress').value.trim();
-                c.tel = document.getElementById('custTel').value.trim();
-                c.email = document.getElementById('custEmail').value.trim();
-                c.contact = document.getElementById('custContact').value.trim();
-            } else {
-                if (customers.find(c => c.code === code)) {
-                    alert('この顧客コードは既に使用されています');
-                    return;
-                }
-                const newId = customers.length > 0 ? Math.max(...customers.map(c => c.id)) + 1 : 1;
-                customers.push({
-                    id: newId,
-                    code: code,
-                    name: name,
-                    kana: document.getElementById('custKana').value.trim(),
-                    zip: document.getElementById('custZip').value.trim(),
-                    address: document.getElementById('custAddress').value.trim(),
-                    tel: document.getElementById('custTel').value.trim(),
-                    email: document.getElementById('custEmail').value.trim(),
-                    contact: document.getElementById('custContact').value.trim()
-                });
-            }
+            const customerData = {
+                code: code,
+                name: name,
+                kana: document.getElementById('custKana').value.trim(),
+                zip: document.getElementById('custZip').value.trim(),
+                address: document.getElementById('custAddress').value.trim(),
+                tel: document.getElementById('custTel').value.trim(),
+                email: document.getElementById('custEmail').value.trim(),
+                contact: document.getElementById('custContact').value.trim()
+            };
 
-            saveToLocalStorage();
-            closeModal('customerModal');
-            renderCustomerList();
-            alert('保存しました');
+            try {
+                if (editingCustomerId) {
+                    // 更新
+                    const { error } = await supabase.from('customers').update(customerData).eq('id', editingCustomerId);
+                    if (error) throw error;
+
+                    const c = customers.find(x => x.id === editingCustomerId);
+                    Object.assign(c, customerData);
+                } else {
+                    // 新規作成
+                    if (customers.find(c => c.code === code)) {
+                        alert('この顧客コードは既に使用されています');
+                        return;
+                    }
+
+                    const { data, error } = await supabase.from('customers').insert(customerData).select().single();
+                    if (error) throw error;
+
+                    customers.push({ id: data.id, ...customerData });
+                }
+
+                closeModal('customerModal');
+                renderCustomerList();
+                alert('保存しました');
+            } catch (error) {
+                console.error('顧客保存エラー:', error);
+                alert('保存に失敗しました: ' + error.message);
+            }
         }
 
-        function deleteCustomer(customerId) {
+        async function deleteCustomer(customerId) {
             if (confirm('この顧客を削除しますか？')) {
-                customers = customers.filter(c => c.id !== customerId);
-                saveToLocalStorage();
-                // 即時UI更新
-                renderCustomerList();
+                try {
+                    const { error } = await supabase.from('customers').delete().eq('id', customerId);
+                    if (error) throw error;
+
+                    customers = customers.filter(c => c.id !== customerId);
+                    renderCustomerList();
+                } catch (error) {
+                    console.error('顧客削除エラー:', error);
+                    alert('削除に失敗しました: ' + error.message);
+                }
             }
         }
 
