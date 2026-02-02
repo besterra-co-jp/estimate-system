@@ -1,0 +1,2221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ベステラ 見積管理システム v2</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'メイリオ', 'Meiryo', sans-serif; background-color: #f0f4f8; color: #333; font-size: 14px; }
+
+        /* ログイン画面 */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+        }
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-box h1 {
+            text-align: center;
+            color: #1a365d;
+            margin-bottom: 8px;
+            font-size: 24px;
+        }
+        .login-box .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .login-box .form-group {
+            margin-bottom: 20px;
+        }
+        .login-box label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+            color: #4a5568;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .login-box input:focus {
+            outline: none;
+            border-color: #3182ce;
+        }
+        .login-box .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .login-box .btn-login:hover {
+            background: #2c5282;
+        }
+        .login-error {
+            color: #e53e3e;
+            text-align: center;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* メインアプリ（非表示初期） */
+        .app-container { display: none; min-height: 100vh; }
+        .app-container.active { display: flex; }
+
+        /* サイドバー */
+        .sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #1a365d 0%, #2c5282 100%);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h1 { font-size: 20px; margin-bottom: 4px; }
+        .sidebar-header span { font-size: 12px; opacity: 0.7; }
+        .user-info {
+            padding: 16px 20px;
+            background: rgba(0,0,0,0.1);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .user-info .name { font-weight: bold; margin-bottom: 4px; }
+        .user-info .role { font-size: 12px; opacity: 0.7; }
+        .nav-menu { padding: 16px 0; }
+        .nav-item {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.1); }
+        .nav-item.active { background: rgba(255,255,255,0.15); border-left-color: #63b3ed; }
+        .nav-item .icon { font-size: 18px; }
+        .nav-item .badge {
+            background: #e53e3e;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: auto;
+        }
+        .nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 20px; }
+        .nav-item.logout { margin-top: auto; color: #fc8181; }
+
+        /* メインコンテンツ */
+        .main-content { flex: 1; margin-left: 240px; min-height: 100vh; }
+        .page-header {
+            background: white;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .page-header h2 { font-size: 20px; color: #2d3748; }
+        .header-actions { display: flex; gap: 12px; align-items: center; }
+        .page-content { padding: 24px; }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ボタン */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: inherit;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: #3182ce; color: white; }
+        .btn-primary:hover { background: #2c5282; }
+        .btn-success { background: #38a169; color: white; }
+        .btn-success:hover { background: #2f855a; }
+        .btn-warning { background: #d69e2e; color: white; }
+        .btn-warning:hover { background: #b7791f; }
+        .btn-outline { background: white; border: 1px solid #e2e8f0; color: #4a5568; }
+        .btn-outline:hover { background: #f7fafc; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* カード */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-header h3 { font-size: 16px; color: #2d3748; }
+        .card-body { padding: 20px; }
+
+        /* 統計カード */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }
+        .stat-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .stat-card .label { font-size: 13px; color: #718096; margin-bottom: 8px; }
+        .stat-card .value { font-size: 28px; font-weight: bold; color: #2d3748; }
+        .stat-card .change { font-size: 12px; margin-top: 8px; }
+
+        /* テーブル */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th {
+            text-align: left;
+            padding: 12px 16px;
+            background: #f7fafc;
+            font-size: 12px;
+            color: #718096;
+            font-weight: bold;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .data-table td { padding: 16px; border-bottom: 1px solid #e2e8f0; }
+        .data-table tr:hover { background: #f7fafc; }
+        .data-table tr.clickable { cursor: pointer; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-draft { background: #fed7d7; color: #c53030; }
+        .status-submitted { background: #c6f6d5; color: #276749; }
+        .status-pending { background: #feebc8; color: #c05621; }
+        .status-approved { background: #bee3f8; color: #2b6cb0; }
+        .status-rejected { background: #e2e8f0; color: #4a5568; }
+
+        /* フォーム */
+        .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        .form-group label { font-size: 13px; font-weight: bold; color: #4a5568; }
+        .form-group .required { color: #e53e3e; }
+        .form-control {
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .form-control:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,0.1); }
+        select.form-control {
+            appearance: none;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718096' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 12px center white;
+            padding-right: 36px;
+        }
+        .auto-display { background: #ebf8ff; padding: 10px 12px; border-radius: 6px; font-size: 13px; color: #2b6cb0; }
+
+        /* タブ */
+        .tabs { display: flex; background: white; border-bottom: 1px solid #e2e8f0; margin: -24px -24px 24px -24px; padding: 0 24px; }
+        .tab { padding: 16px 24px; cursor: pointer; border-bottom: 3px solid transparent; color: #718096; font-weight: 500; }
+        .tab:hover { color: #2d3748; }
+        .tab.active { color: #3182ce; border-bottom-color: #3182ce; font-weight: bold; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* スプレッドシート */
+        .spreadsheet { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .spreadsheet th { background: #edf2f7; padding: 10px 8px; text-align: center; font-weight: bold; color: #4a5568; border: 1px solid #e2e8f0; }
+        .spreadsheet td { border: 1px solid #e2e8f0; padding: 0; }
+        .spreadsheet input { width: 100%; padding: 8px 10px; border: none; font-size: 13px; font-family: inherit; }
+        .spreadsheet input:focus { outline: none; background: #fffbeb; }
+        .spreadsheet input[type="number"] { text-align: right; }
+        .spreadsheet .col-no { width: 40px; text-align: center; background: #f7fafc; color: #718096; padding: 8px; }
+        .spreadsheet .col-amount { background: #f7fafc; }
+        .spreadsheet .col-amount input { background: transparent; font-weight: bold; }
+
+        /* 中項目 */
+        .category-header {
+            background: #2c5282;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            margin-top: 16px;
+            border-radius: 6px 6px 0 0;
+        }
+        .category-header:first-of-type { margin-top: 0; }
+        .category-header h4 { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .category-content { border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px; }
+        .category-content.collapsed { display: none; }
+
+        /* 経費テーブル */
+        .expense-table { width: 100%; border-collapse: collapse; }
+        .expense-table th, .expense-table td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        .expense-table th { background: #f7fafc; font-weight: bold; color: #4a5568; }
+        .expense-table .value { text-align: right; font-weight: bold; }
+        .expense-table input { width: 70px; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; text-align: right; }
+        .expense-table .total-row { background: #ebf8ff; font-size: 16px; }
+
+        /* サマリー */
+        .summary-box { background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); color: white; border-radius: 8px; padding: 24px; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .summary-item { text-align: center; }
+        .summary-item .label { font-size: 12px; opacity: 0.8; margin-bottom: 6px; }
+        .summary-item .value { font-size: 24px; font-weight: bold; }
+        .summary-item .value.highlight { color: #63b3ed; }
+
+        /* ワークフロー */
+        .workflow-box { background: #f7fafc; border: 2px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .workflow-box h4 { margin-bottom: 16px; color: #2d3748; }
+        .workflow-status { display: flex; align-items: center; gap: 20px; margin-bottom: 16px; }
+        .workflow-step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .workflow-step .circle {
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: white;
+        }
+        .workflow-step .circle.pending { background: #e2e8f0; color: #718096; }
+        .workflow-step .circle.current { background: #d69e2e; }
+        .workflow-step .circle.done { background: #38a169; }
+        .workflow-step .circle.rejected { background: #e53e3e; }
+        .workflow-arrow { font-size: 24px; color: #cbd5e0; }
+        .workflow-actions { display: flex; gap: 12px; margin-top: 16px; }
+
+        /* 通知 */
+        .notification-list { max-height: 400px; overflow-y: auto; }
+        .notification-item {
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .notification-item:hover { background: #f7fafc; }
+        .notification-item .icon {
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+        }
+        .notification-item .icon.approval { background: #c6f6d5; }
+        .notification-item .icon.request { background: #feebc8; }
+        .notification-item .icon.reject { background: #fed7d7; }
+        .notification-item .content { flex: 1; }
+        .notification-item .content h5 { margin-bottom: 4px; }
+        .notification-item .content p { font-size: 13px; color: #718096; }
+        .notification-item .time { font-size: 12px; color: #a0aec0; }
+        .notification-item.unread { background: #ebf8ff; }
+
+        /* ヘルプパネル */
+        .help-toggle { position: fixed; right: 20px; bottom: 20px; width: 56px; height: 56px; border-radius: 50%; background: #3182ce; color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; }
+        .help-toggle:hover { background: #2c5282; }
+        .help-panel { position: fixed; right: -420px; top: 0; width: 400px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 200; transition: right 0.3s; overflow-y: auto; }
+        .help-panel.active { right: 0; }
+        .help-panel-header { background: #1a365d; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; }
+        .help-panel-header h3 { font-size: 18px; }
+        .help-panel-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+        .help-section { padding: 20px; border-bottom: 1px solid #e2e8f0; }
+        .help-section h4 { color: #2c5282; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .help-section p { font-size: 13px; color: #4a5568; line-height: 1.7; margin-bottom: 8px; }
+        .help-section ul { font-size: 13px; color: #4a5568; padding-left: 20px; line-height: 1.8; }
+        .help-step { display: flex; gap: 12px; margin-bottom: 16px; }
+        .help-step-num { width: 28px; height: 28px; background: #3182ce; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+        .help-step-content { flex: 1; }
+        .help-step-content h5 { font-size: 14px; margin-bottom: 4px; }
+        .help-step-content p { font-size: 12px; color: #718096; }
+        .help-tip { background: #fffbeb; border-left: 4px solid #d69e2e; padding: 12px; margin: 12px 0; font-size: 13px; }
+        .help-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 150; display: none; }
+        .help-overlay.active { display: block; }
+
+        /* ステップガイド */
+        .step-guide { background: linear-gradient(135deg, #ebf8ff 0%, #e6fffa 100%); border: 2px solid #90cdf4; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+        .step-guide-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .step-guide-header h4 { color: #2b6cb0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .step-progress { display: flex; gap: 8px; align-items: center; }
+        .step-dot { width: 12px; height: 12px; border-radius: 50%; background: #cbd5e0; }
+        .step-dot.active { background: #3182ce; }
+        .step-dot.done { background: #38a169; }
+        .step-guide-content { background: white; border-radius: 8px; padding: 16px; }
+        .step-guide-content p { font-size: 14px; color: #2d3748; margin-bottom: 12px; }
+        .step-guide-content .next-action { display: flex; align-items: center; gap: 12px; background: #f0fff4; padding: 12px; border-radius: 6px; }
+        .step-guide-content .next-action .icon { font-size: 24px; }
+        .step-guide-content .next-action .text { font-size: 13px; color: #276749; }
+        .step-guide-content .next-action .text strong { display: block; font-size: 14px; margin-bottom: 2px; }
+
+        /* 期間入力 */
+        .period-input-group { display: flex; gap: 8px; align-items: center; }
+        .period-input-group select { padding: 10px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        .period-input-group select:focus { outline: none; border-color: #3182ce; }
+        .period-input-group .sep { color: #718096; font-size: 14px; }
+
+        /* モーダル */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; border-radius: 12px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 18px; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #718096; }
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 16px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 12px; }
+
+        /* 印刷 */
+        .print-preview { background: white; padding: 40px; max-width: 800px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .print-preview h1 { text-align: center; font-size: 28px; letter-spacing: 0.5em; margin-bottom: 40px; }
+        .print-preview .amount-box { border: 2px solid #333; padding: 20px; text-align: center; margin: 30px 0; }
+        .print-preview .amount-box .value { font-size: 32px; font-weight: bold; }
+        .print-preview table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .print-preview table th, .print-preview table td { border: 1px solid #333; padding: 10px; }
+        .print-preview table th { background: #f0f0f0; width: 150px; }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .action-bar { display: flex; gap: 12px; margin-bottom: 16px; }
+
+        @media print {
+            .sidebar, .page-header, .tabs, .action-bar, .btn, .workflow-box { display: none !important; }
+            .main-content { margin-left: 0; }
+            .page-content { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ログイン画面 -->
+    <div class="login-container" id="loginScreen">
+        <div class="login-box">
+            <h1>BESTERRA</h1>
+            <p class="subtitle">見積管理システム</p>
+            <div class="login-error" id="loginError">社員番号またはパスワードが正しくありません</div>
+            <div class="form-group">
+                <label>社員番号</label>
+                <input type="text" id="loginId" placeholder="例: 1001">
+            </div>
+            <div class="form-group">
+                <label>パスワード</label>
+                <input type="password" id="loginPassword" placeholder="パスワード">
+            </div>
+            <button class="btn-login" onclick="login()">ログイン</button>
+            <div style="margin-top:24px;padding:16px;background:#f7fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                <p style="text-align:center;margin:0 0 12px 0;font-size:13px;font-weight:bold;color:#4a5568;">
+                    📋 デモユーザー一覧
+                </p>
+                <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:#e2e8f0;">
+                            <th style="padding:6px;text-align:left;border-radius:4px 0 0 0;">社員番号</th>
+                            <th style="padding:6px;text-align:left;">氏名</th>
+                            <th style="padding:6px;text-align:left;">権限</th>
+                            <th style="padding:6px;text-align:left;border-radius:0 4px 0 0;">PW</th>
+                        </tr>
+                    </thead>
+                    <tbody style="color:#4a5568;">
+                        <tr><td style="padding:5px;border-bottom:1px solid #e2e8f0;">1001</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">山田太郎</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;"><span style="background:#c53030;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">管理者</span></td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">0001</td></tr>
+                        <tr><td style="padding:5px;border-bottom:1px solid #e2e8f0;">1002</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">鈴木一郎</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;"><span style="background:#2b6cb0;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">一般</span></td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">0001</td></tr>
+                        <tr><td style="padding:5px;border-bottom:1px solid #e2e8f0;">1003</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">田中花子</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;"><span style="background:#2b6cb0;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">一般</span></td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">0001</td></tr>
+                        <tr><td style="padding:5px;border-bottom:1px solid #e2e8f0;">1004</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">佐藤次郎</td><td style="padding:5px;border-bottom:1px solid #e2e8f0;"><span style="background:#2b6cb0;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">一般</span></td><td style="padding:5px;border-bottom:1px solid #e2e8f0;">0001</td></tr>
+                        <tr><td style="padding:5px;">1005</td><td style="padding:5px;">高橋美咲</td><td style="padding:5px;"><span style="background:#c53030;color:white;padding:2px 6px;border-radius:4px;font-size:10px;">管理者</span></td><td style="padding:5px;">0001</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- メインアプリ -->
+    <div class="app-container" id="appContainer">
+        <!-- サイドバー -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1>BESTERRA</h1>
+                <span>見積管理システム</span>
+            </div>
+            <div class="user-info">
+                <div class="name" id="currentUserName">-</div>
+                <div class="role" id="currentUserRole">-</div>
+            </div>
+            <div class="nav-menu">
+                <div class="nav-item active" onclick="showPage('dashboard')">
+                    <span class="icon">📊</span>
+                    <span>ダッシュボード</span>
+                </div>
+                <div class="nav-item" onclick="showPage('list')">
+                    <span class="icon">📝</span>
+                    <span>見積一覧</span>
+                </div>
+                <div class="nav-item" onclick="createNewEstimate()">
+                    <span class="icon">➕</span>
+                    <span>新規作成</span>
+                </div>
+                <div class="nav-item" onclick="showPage('approvals')">
+                    <span class="icon">✅</span>
+                    <span>承認依頼</span>
+                    <span class="badge" id="approvalBadge" style="display:none;">0</span>
+                </div>
+                <div class="nav-item" onclick="showPage('notifications')">
+                    <span class="icon">🔔</span>
+                    <span>通知</span>
+                    <span class="badge" id="notificationBadge" style="display:none;">0</span>
+                </div>
+                <div class="nav-divider"></div>
+                <div class="nav-item" onclick="showPage('customers')" id="navCustomers" style="display:none;">
+                    <span class="icon">🏢</span>
+                    <span>顧客管理</span>
+                </div>
+                <div class="nav-item" onclick="showPage('users')" id="navUsers" style="display:none;">
+                    <span class="icon">👥</span>
+                    <span>ユーザー管理</span>
+                </div>
+                <div class="nav-item" onclick="showPage('settings')">
+                    <span class="icon">⚙️</span>
+                    <span>設定</span>
+                </div>
+                <div class="nav-divider"></div>
+                <div class="nav-item logout" onclick="logout()">
+                    <span class="icon">🚪</span>
+                    <span>ログアウト</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- メインコンテンツ -->
+        <main class="main-content">
+            <!-- ダッシュボード -->
+            <div id="page-dashboard" class="page active">
+                <div class="page-header">
+                    <h2>ダッシュボード</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="createNewEstimate()">➕ 新規作成</button>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="label">作成中</div>
+                            <div class="value" id="stat-draft">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">承認待ち</div>
+                            <div class="value" id="stat-pending">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">承認済</div>
+                            <div class="value" id="stat-approved">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">今月合計金額</div>
+                            <div class="value" id="stat-total">¥0</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>最近の見積</h3>
+                            <button class="btn btn-outline btn-sm" onclick="showPage('list')">すべて表示 →</button>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>工事名</th>
+                                    <th>顧客名</th>
+                                    <th>金額</th>
+                                    <th>状態</th>
+                                    <th>申請者</th>
+                                    <th>更新日</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-estimates"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 見積一覧 -->
+            <div id="page-list" class="page">
+                <div class="page-header">
+                    <h2>見積一覧</h2>
+                    <div class="header-actions">
+                        <input type="text" class="form-control" placeholder="🔍 検索..." id="search-input" oninput="filterEstimates()" style="width:200px;">
+                        <button class="btn btn-primary" onclick="createNewEstimate()">➕ 新規作成</button>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <div class="action-bar">
+                        <button class="btn btn-outline btn-sm" onclick="filterByStatus('')">すべて</button>
+                        <button class="btn btn-outline btn-sm" onclick="filterByStatus('draft')">作成中</button>
+                        <button class="btn btn-outline btn-sm" onclick="filterByStatus('pending')">承認待ち</button>
+                        <button class="btn btn-outline btn-sm" onclick="filterByStatus('approved')">承認済</button>
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>工事名</th>
+                                    <th>顧客名</th>
+                                    <th>金額</th>
+                                    <th>状態</th>
+                                    <th>申請者</th>
+                                    <th>承認者</th>
+                                    <th>更新日</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-estimates"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 承認依頼 -->
+            <div id="page-approvals" class="page">
+                <div class="page-header">
+                    <h2>承認依頼一覧</h2>
+                </div>
+                <div class="page-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>あなたに承認依頼が来ている見積</h3>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>工事名</th>
+                                    <th>顧客名</th>
+                                    <th>金額</th>
+                                    <th>申請者</th>
+                                    <th>申請日</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="approval-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 通知 -->
+            <div id="page-notifications" class="page">
+                <div class="page-header">
+                    <h2>通知</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-outline btn-sm" onclick="markAllRead()">すべて既読にする</button>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <div class="card">
+                        <div class="notification-list" id="notification-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ユーザー管理（管理者のみ） -->
+            <div id="page-users" class="page">
+                <div class="page-header">
+                    <h2>ユーザー管理</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openUserModal()">➕ ユーザー追加</button>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>社員番号</th>
+                                    <th>氏名</th>
+                                    <th>メールアドレス</th>
+                                    <th>権限</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="user-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 顧客管理（管理者のみ） -->
+            <div id="page-customers" class="page">
+                <div class="page-header">
+                    <h2>顧客管理</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="openCustomerModal()">➕ 顧客追加</button>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>顧客コード</th>
+                                    <th>顧客名</th>
+                                    <th>住所</th>
+                                    <th>電話番号</th>
+                                    <th>担当者</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="customer-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 見積編集 -->
+            <div id="page-edit" class="page">
+                <div class="page-header">
+                    <h2 id="edit-page-title">新規見積作成</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-outline" onclick="showPage('list')">← 一覧に戻る</button>
+                        <button class="btn btn-outline" onclick="saveCurrentEstimate()">💾 保存</button>
+                        <button class="btn btn-success" onclick="showEditTab('output')">📄 出力</button>
+                    </div>
+                </div>
+                <div class="page-content">
+                    <!-- ワークフロー状態 -->
+                    <div class="workflow-box" id="workflowBox">
+                        <h4>📋 ワークフロー状態</h4>
+                        <div class="workflow-status" id="workflowStatus"></div>
+                        <div class="workflow-actions" id="workflowActions"></div>
+                    </div>
+
+                    <!-- ステップガイド -->
+                    <div class="step-guide" id="stepGuide">
+                        <div class="step-guide-header">
+                            <h4>📖 操作ガイド</h4>
+                            <div class="step-progress">
+                                <div class="step-dot active" id="dot1"></div>
+                                <div class="step-dot" id="dot2"></div>
+                                <div class="step-dot" id="dot3"></div>
+                                <div class="step-dot" id="dot4"></div>
+                            </div>
+                        </div>
+                        <div class="step-guide-content" id="stepGuideContent">
+                            <p id="stepDescription">まず、顧客先名と工事名を入力してください。</p>
+                            <div class="next-action">
+                                <div class="icon">👉</div>
+                                <div class="text">
+                                    <strong id="nextActionTitle">次のステップ</strong>
+                                    <span id="nextActionDesc">必須項目（*）を入力したら「2. 原価入力」タブへ進みましょう</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active" onclick="showEditTab('basic')">1. 基本情報</div>
+                        <div class="tab" onclick="showEditTab('cost')">2. 原価入力</div>
+                        <div class="tab" onclick="showEditTab('expense')">3. 経費設定</div>
+                        <div class="tab" onclick="showEditTab('output')">4. 確認・出力</div>
+                    </div>
+
+                    <!-- 基本情報 -->
+                    <div id="edit-basic" class="tab-panel active">
+                        <div class="card">
+                            <div class="card-header"><h3>基本情報</h3></div>
+                            <div class="card-body">
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>顧客先名 <span class="required">*</span></label>
+                                        <select class="form-control" id="customerSelect" onchange="updateCustomerInfo()">
+                                            <option value="">選択してください</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>顧客情報</label>
+                                        <div class="auto-display" id="customerInfo">-</div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>日付</label>
+                                        <input type="date" class="form-control" id="quoteDate">
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label>工事名 <span class="required">*</span></label>
+                                        <input type="text" class="form-control" id="projectName">
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label>現場住所</label>
+                                        <input type="text" class="form-control" id="siteAddress">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>見積工事期間（開始）</label>
+                                        <div class="period-input-group">
+                                            <select id="periodStartYear" onchange="updatePeriodPreview()"></select>
+                                            <span class="sep">年</span>
+                                            <select id="periodStartMonth" onchange="updatePeriodPreview()"></select>
+                                            <span class="sep">月</span>
+                                            <select id="periodStartDay" onchange="updatePeriodPreview()"></select>
+                                            <span class="sep">日</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>見積工事期間（終了）</label>
+                                        <div class="period-input-group">
+                                            <select id="periodEndYear" onchange="updatePeriodPreview()"></select>
+                                            <span class="sep">年</span>
+                                            <select id="periodEndMonth" onchange="updatePeriodPreview()"></select>
+                                            <span class="sep">月</span>
+                                            <select id="periodEndDay" onchange="updatePeriodPreview()"></select>
+                                            <span class="sep">日</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>担当事務所</label>
+                                        <select class="form-control" id="office" onchange="updateOfficeInfo()">
+                                            <option value="">選択してください</option>
+                                            <option value="本社">本社</option>
+                                            <option value="千葉事務所">千葉事務所</option>
+                                            <option value="京浜事務所">京浜事務所</option>
+                                            <option value="西日本事務所">西日本事務所</option>
+                                            <option value="九州事務所">九州事務所</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>事務所情報</label>
+                                        <div class="auto-display" id="officeInfo">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 原価入力 -->
+                    <div id="edit-cost" class="tab-panel">
+                        <div class="action-bar">
+                            <button class="btn btn-primary" onclick="addCategory()">➕ 中項目追加</button>
+                            <button class="btn btn-outline" onclick="loadSampleData()">📁 サンプル読込</button>
+                        </div>
+                        <div id="costCategories"></div>
+                        <div class="card" style="margin-top:20px;">
+                            <div class="card-body">
+                                <div class="summary-box">
+                                    <div class="summary-grid">
+                                        <div class="summary-item">
+                                            <div class="label">直接工事費合計</div>
+                                            <div class="value highlight" id="totalDirectCost">¥0</div>
+                                        </div>
+                                        <div class="summary-item">
+                                            <div class="label">中項目数</div>
+                                            <div class="value" id="categoryCount">0</div>
+                                        </div>
+                                        <div class="summary-item">
+                                            <div class="label">項目数</div>
+                                            <div class="value" id="itemCount">0</div>
+                                        </div>
+                                        <div class="summary-item"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 経費設定 -->
+                    <div id="edit-expense" class="tab-panel">
+                        <div class="card">
+                            <div class="card-header"><h3>自動計算経費</h3></div>
+                            <div class="card-body">
+                                <table class="expense-table">
+                                    <thead>
+                                        <tr><th>項目</th><th>計算式</th><th style="width:120px;">率</th><th style="width:150px;text-align:right;">金額</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>直接工事費</td><td>-</td><td>-</td><td class="value" id="expDirectCost">¥0</td></tr>
+                                        <tr><td>安全対策費</td><td>直工費 × 率</td><td><input type="number" id="safetyRate" value="2" step="0.1" onchange="calculateExpenses()"> %</td><td class="value" id="expSafety">¥0</td></tr>
+                                        <tr><td>諸経費</td><td>直工費 × 率</td><td><input type="number" id="overheadRate" value="15" step="0.5" onchange="calculateExpenses()"> %</td><td class="value" id="expOverhead">¥0</td></tr>
+                                        <tr><td>労災保険</td><td>提出金額 × 0.24 × 15/1000</td><td>-</td><td class="value" id="expInsurance">¥0</td></tr>
+                                        <tr><td>法定福利費</td><td>提出金額 × 人件費率 × 16.1%</td><td><input type="number" id="laborRate" value="24" step="1" onchange="calculateExpenses()"> %</td><td class="value" id="expWelfare">¥0</td></tr>
+                                        <tr class="total-row"><td colspan="3"><strong>見積金額合計</strong></td><td class="value" id="expTotal">¥0</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 出力 -->
+                    <div id="edit-output" class="tab-panel">
+                        <div class="action-bar">
+                            <button class="btn btn-primary" onclick="window.print()">🖨️ 印刷</button>
+                            <button class="btn btn-outline" onclick="exportCSV()">📊 CSV出力</button>
+                        </div>
+                        <div class="print-preview">
+                            <h1>御 見 積 書</h1>
+                            <div style="text-align:right;margin-bottom:30px;" id="previewDate"></div>
+                            <div style="font-size:18px;border-bottom:1px solid #333;padding-bottom:4px;margin-bottom:20px;">
+                                <span id="previewCustomer"></span> 御中
+                            </div>
+                            <div class="amount-box">
+                                <div style="font-size:14px;margin-bottom:8px;">見積金額（税抜）</div>
+                                <div class="value" id="previewAmount"></div>
+                            </div>
+                            <p style="margin:20px 0;">下記の通り御見積申し上げます。</p>
+                            <table>
+                                <tr><th>件名</th><td id="previewProject"></td></tr>
+                                <tr><th>納入場所</th><td id="previewSite"></td></tr>
+                                <tr><th>見積工事期間</th><td id="previewPeriod"></td></tr>
+                            </table>
+                            <div style="margin-top:40px;text-align:right;">
+                                <p>ベステラ株式会社</p>
+                                <p id="previewOffice"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 設定 -->
+            <div id="page-settings" class="page">
+                <div class="page-header"><h2>設定</h2></div>
+                <div class="page-content">
+                    <div class="card">
+                        <div class="card-header"><h3>パスワード変更</h3></div>
+                        <div class="card-body">
+                            <div class="form-group" style="max-width:300px;">
+                                <label>新しいパスワード</label>
+                                <input type="password" class="form-control" id="newPassword">
+                            </div>
+                            <button class="btn btn-primary" onclick="changePassword()" style="margin-top:12px;">変更する</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><h3>データ管理</h3></div>
+                        <div class="card-body">
+                            <button class="btn btn-outline" onclick="exportAllData()">📥 エクスポート</button>
+                            <button class="btn btn-outline" onclick="importAllData()">📤 インポート</button>
+                            <button class="btn btn-danger" onclick="clearAllData()">🗑️ 全削除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ヘルプボタン -->
+    <button class="help-toggle" onclick="toggleHelp()" title="操作マニュアル">❓</button>
+
+    <!-- ヘルプオーバーレイ -->
+    <div class="help-overlay" id="helpOverlay" onclick="toggleHelp()"></div>
+
+    <!-- ヘルプパネル -->
+    <div class="help-panel" id="helpPanel">
+        <div class="help-panel-header">
+            <h3>📖 操作マニュアル</h3>
+            <button class="help-panel-close" onclick="toggleHelp()">&times;</button>
+        </div>
+
+        <div class="help-section">
+            <h4>🚀 見積作成の流れ</h4>
+            <div class="help-step">
+                <div class="help-step-num">1</div>
+                <div class="help-step-content">
+                    <h5>基本情報を入力</h5>
+                    <p>顧客先名、工事名（必須）、工事期間などを入力します</p>
+                </div>
+            </div>
+            <div class="help-step">
+                <div class="help-step-num">2</div>
+                <div class="help-step-content">
+                    <h5>原価を入力</h5>
+                    <p>「中項目追加」で工事項目を追加し、数量・単価を入力します</p>
+                </div>
+            </div>
+            <div class="help-step">
+                <div class="help-step-num">3</div>
+                <div class="help-step-content">
+                    <h5>経費を確認</h5>
+                    <p>安全対策費・諸経費などの率を確認・調整します</p>
+                </div>
+            </div>
+            <div class="help-step">
+                <div class="help-step-num">4</div>
+                <div class="help-step-content">
+                    <h5>確認・承認申請</h5>
+                    <p>内容を確認し、承認者を選んで申請します</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h4>💡 操作のポイント</h4>
+            <div class="help-tip">
+                <strong>💾 こまめに保存</strong><br>
+                入力中は「保存」ボタンで随時保存しましょう。データはブラウザに保存されます。
+            </div>
+            <div class="help-tip">
+                <strong>📁 サンプル読込</strong><br>
+                原価入力画面の「サンプル読込」で、入力例を確認できます。
+            </div>
+            <div class="help-tip">
+                <strong>🔢 金額は自動計算</strong><br>
+                数量×単価は自動で計算されます。経費も直接工事費から自動算出されます。
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h4>📋 ワークフローについて</h4>
+            <ul>
+                <li><strong>作成中</strong>：編集可能な状態</li>
+                <li><strong>承認待ち</strong>：承認者の確認待ち</li>
+                <li><strong>承認済</strong>：承認完了</li>
+                <li><strong>却下</strong>：差し戻し（再申請可能）</li>
+            </ul>
+            <p style="margin-top:12px;">承認者にはメールで通知が届きます。</p>
+        </div>
+
+        <div class="help-section">
+            <h4>🔑 デモユーザー</h4>
+            <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                <tr style="background:#f7fafc;"><th style="padding:8px;text-align:left;">社員番号</th><th style="padding:8px;">氏名</th><th style="padding:8px;">権限</th></tr>
+                <tr><td style="padding:6px;border-bottom:1px solid #e2e8f0;">1001</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">山田太郎</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">管理者</td></tr>
+                <tr><td style="padding:6px;border-bottom:1px solid #e2e8f0;">1002</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">鈴木一郎</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">一般</td></tr>
+                <tr><td style="padding:6px;border-bottom:1px solid #e2e8f0;">1003</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">田中花子</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">一般</td></tr>
+                <tr><td style="padding:6px;border-bottom:1px solid #e2e8f0;">1004</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">佐藤次郎</td><td style="padding:6px;border-bottom:1px solid #e2e8f0;">一般</td></tr>
+                <tr><td style="padding:6px;">1005</td><td style="padding:6px;">高橋美咲</td><td style="padding:6px;">管理者</td></tr>
+            </table>
+            <p style="margin-top:8px;font-size:12px;color:#718096;">※全員パスワード: 0001</p>
+        </div>
+    </div>
+
+    <!-- ユーザー編集モーダル -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="userModalTitle">ユーザー追加</h3>
+                <button class="modal-close" onclick="closeModal('userModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>社員番号 <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="userEmpId">
+                </div>
+                <div class="form-group">
+                    <label>氏名 <span class="required">*</span></label>
+                    <input type="text" class="form-control" id="userName">
+                </div>
+                <div class="form-group">
+                    <label>メールアドレス <span class="required">*</span></label>
+                    <input type="email" class="form-control" id="userEmail">
+                </div>
+                <div class="form-group">
+                    <label>権限</label>
+                    <select class="form-control" id="userRole">
+                        <option value="user">一般ユーザー</option>
+                        <option value="admin">管理者</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>パスワード（新規のみ）</label>
+                    <input type="password" class="form-control" id="userPassword" value="0001">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('userModal')">キャンセル</button>
+                <button class="btn btn-primary" onclick="saveUser()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顧客編集モーダル -->
+    <div class="modal-overlay" id="customerModal">
+        <div class="modal" style="max-width:550px;">
+            <div class="modal-header">
+                <h3 id="customerModalTitle">顧客追加</h3>
+                <button class="modal-close" onclick="closeModal('customerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>顧客コード <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="custCode" placeholder="例: C006">
+                    </div>
+                    <div class="form-group">
+                        <label>顧客名 <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="custName" placeholder="例: ○○株式会社">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>フリガナ</label>
+                        <input type="text" class="form-control" id="custKana" placeholder="例: マルマルカブシキガイシャ">
+                    </div>
+                    <div class="form-group">
+                        <label>郵便番号</label>
+                        <input type="text" class="form-control" id="custZip" placeholder="例: 100-0001">
+                    </div>
+                    <div class="form-group">
+                        <label>電話番号</label>
+                        <input type="text" class="form-control" id="custTel" placeholder="例: 03-1234-5678">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>住所</label>
+                        <input type="text" class="form-control" id="custAddress" placeholder="例: 東京都千代田区...">
+                    </div>
+                    <div class="form-group">
+                        <label>メールアドレス</label>
+                        <input type="email" class="form-control" id="custEmail" placeholder="例: info@example.co.jp">
+                    </div>
+                    <div class="form-group">
+                        <label>担当者</label>
+                        <input type="text" class="form-control" id="custContact" placeholder="例: 営業部 山田様">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('customerModal')">キャンセル</button>
+                <button class="btn btn-primary" onclick="saveCustomer()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 承認申請モーダル -->
+    <div class="modal-overlay" id="approvalModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>承認申請</h3>
+                <button class="modal-close" onclick="closeModal('approvalModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>承認者を選択 <span class="required">*</span></label>
+                    <select class="form-control" id="approverSelect"></select>
+                </div>
+                <div class="form-group">
+                    <label>コメント（任意）</label>
+                    <textarea class="form-control" id="approvalComment" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('approvalModal')">キャンセル</button>
+                <button class="btn btn-primary" onclick="submitApproval()">申請する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 承認/却下モーダル -->
+    <div class="modal-overlay" id="reviewModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="reviewModalTitle">承認確認</h3>
+                <button class="modal-close" onclick="closeModal('reviewModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="reviewModalMessage"></p>
+                <div class="form-group" style="margin-top:16px;">
+                    <label>コメント（任意）</label>
+                    <textarea class="form-control" id="reviewComment" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('reviewModal')">キャンセル</button>
+                <button class="btn btn-primary" id="reviewConfirmBtn">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== データ =====
+        let users = [
+            { empId: '1001', name: '山田太郎', email: 'yamada@besterra.co.jp', role: 'admin', password: '0001' },
+            { empId: '1002', name: '鈴木一郎', email: 'suzuki@besterra.co.jp', role: 'user', password: '0001' },
+            { empId: '1003', name: '田中花子', email: 'tanaka@besterra.co.jp', role: 'user', password: '0001' },
+            { empId: '1004', name: '佐藤次郎', email: 'sato@besterra.co.jp', role: 'user', password: '0001' },
+            { empId: '1005', name: '高橋美咲', email: 'takahashi@besterra.co.jp', role: 'admin', password: '0001' }
+        ];
+
+        let customers = [
+            { id: 1, code: 'C001', name: '△△建設株式会社', kana: 'サンカクサンカクケンセツ', zip: '100-0001', address: '東京都千代田区千代田1-1-1', tel: '03-1234-5678', email: 'info@sankaku-kensetsu.co.jp', contact: '営業部 山本様' },
+            { id: 2, code: 'C002', name: '◇◇工業株式会社', kana: 'ヒシヒシコウギョウ', zip: '210-0001', address: '神奈川県川崎市川崎区本町1-2-3', tel: '044-234-5678', email: 'contact@hishi-kogyo.co.jp', contact: '施設管理部 佐々木様' },
+            { id: 3, code: 'C003', name: '○○商事株式会社', kana: 'マルマルショウジ', zip: '530-0001', address: '大阪府大阪市北区梅田2-3-4', tel: '06-345-6789', email: 'shoji@marumaru.co.jp', contact: '総務部 井上様' },
+            { id: 4, code: 'C004', name: '株式会社エネルギーサービス', kana: 'エネルギーサービス', zip: '460-0001', address: '愛知県名古屋市中区栄3-4-5', tel: '052-456-7890', email: 'info@energy-service.co.jp', contact: '設備課 木村様' },
+            { id: 5, code: 'C005', name: '北関東プラント株式会社', kana: 'キタカントウプラント', zip: '330-0001', address: '埼玉県さいたま市浦和区高砂1-5-6', tel: '048-567-8901', email: 'plant@kitakanto.co.jp', contact: '工務部 中村様' }
+        ];
+
+        let estimates = [];
+        let notifications = [];
+        let currentUser = null;
+        let currentEstimateId = null;
+        let categories = [];
+        let categoryId = 0;
+        let currentFilter = '';
+        let editingUserId = null;
+        let editingCustomerId = null;
+
+        const officeData = {
+            '本社': { zip: '135-0023', address: '東京都江東区平野3-2-6', tel: '03-3630-5555' },
+            '千葉事務所': { zip: '290-0067', address: '千葉県市原市八幡海岸通1969-52', tel: '0436-26-4020' },
+            '京浜事務所': { zip: '210-0814', address: '神奈川県川崎市川崎区台町13-10', tel: '044-280-6391' },
+            '西日本事務所': { zip: '721-0963', address: '広島県福山市南手城町2-13-28', tel: '084-973-9437' },
+            '九州事務所': { zip: '802-0013', address: '福岡県北九州市小倉北区長浜町10-7', tel: '093-953-8815' }
+        };
+
+        const statusLabels = {
+            'draft': { label: '作成中', class: 'status-draft' },
+            'pending': { label: '承認待ち', class: 'status-pending' },
+            'approved': { label: '承認済', class: 'status-approved' },
+            'rejected': { label: '却下', class: 'status-rejected' }
+        };
+
+        // ===== 初期化 =====
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFromLocalStorage();
+            if (estimates.length === 0) createSampleEstimates();
+            initPeriodSelects();
+            document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') login();
+            });
+
+            // セッション復元（F5対応）
+            restoreSession();
+        });
+
+        function restoreSession() {
+            const savedUser = sessionStorage.getItem('besterra_currentUser');
+            if (savedUser) {
+                const userData = JSON.parse(savedUser);
+                const user = users.find(u => u.empId === userData.empId);
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('appContainer').classList.add('active');
+                    document.getElementById('currentUserName').textContent = user.name;
+                    document.getElementById('currentUserRole').textContent = user.role === 'admin' ? '管理者' : '一般ユーザー';
+
+                    if (user.role === 'admin') {
+                        document.getElementById('navUsers').style.display = 'flex';
+                        document.getElementById('navCustomers').style.display = 'flex';
+                    }
+
+                    updateDashboard();
+                    updateBadges();
+                }
+            }
+        }
+
+        function loadFromLocalStorage() {
+            const u = localStorage.getItem('besterra_users');
+            const e = localStorage.getItem('besterra_estimates');
+            const n = localStorage.getItem('besterra_notifications');
+            const c = localStorage.getItem('besterra_customers');
+            if (u) users = JSON.parse(u);
+            if (e) estimates = JSON.parse(e);
+            if (n) notifications = JSON.parse(n);
+            if (c) customers = JSON.parse(c);
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('besterra_users', JSON.stringify(users));
+            localStorage.setItem('besterra_estimates', JSON.stringify(estimates));
+            localStorage.setItem('besterra_notifications', JSON.stringify(notifications));
+            localStorage.setItem('besterra_customers', JSON.stringify(customers));
+        }
+
+        function createSampleEstimates() {
+            estimates = [
+                { id: 1, basic: { customerName: '△△建設株式会社', projectName: '○○プラント解体工事', quoteDate: '2026-02-02', siteAddress: '千葉県市原市', office: '千葉事務所' }, status: 'draft', total: 16972032, categories: [], creatorId: '1002', approverId: null, createdAt: '2026-02-02', updatedAt: '2026-02-02' },
+                { id: 2, basic: { customerName: '◇◇工業株式会社', projectName: '□□設備撤去工事', quoteDate: '2026-01-28', siteAddress: '神奈川県川崎市', office: '京浜事務所' }, status: 'pending', total: 8500000, categories: [], creatorId: '1003', approverId: '1001', createdAt: '2026-01-25', updatedAt: '2026-01-28', submittedAt: '2026-01-28' },
+                { id: 3, basic: { customerName: '○○商事株式会社', projectName: '××工場改修工事', quoteDate: '2026-01-20', siteAddress: '広島県福山市', office: '西日本事務所' }, status: 'approved', total: 22000000, categories: [], creatorId: '1004', approverId: '1005', createdAt: '2026-01-15', updatedAt: '2026-01-22', approvedAt: '2026-01-22' }
+            ];
+            saveToLocalStorage();
+        }
+
+        // ===== ログイン =====
+        function login() {
+            const empId = document.getElementById('loginId').value;
+            const password = document.getElementById('loginPassword').value;
+            const user = users.find(u => u.empId === empId && u.password === password);
+
+            if (user) {
+                currentUser = user;
+                // セッションに保存（F5対応）
+                sessionStorage.setItem('besterra_currentUser', JSON.stringify({ empId: user.empId }));
+
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('appContainer').classList.add('active');
+                document.getElementById('currentUserName').textContent = user.name;
+                document.getElementById('currentUserRole').textContent = user.role === 'admin' ? '管理者' : '一般ユーザー';
+
+                if (user.role === 'admin') {
+                    document.getElementById('navUsers').style.display = 'flex';
+                    document.getElementById('navCustomers').style.display = 'flex';
+                }
+
+                updateDashboard();
+                updateBadges();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            // セッションをクリア
+            sessionStorage.removeItem('besterra_currentUser');
+
+            document.getElementById('appContainer').classList.remove('active');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loginId').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').style.display = 'none';
+            document.getElementById('navUsers').style.display = 'none';
+            document.getElementById('navCustomers').style.display = 'none';
+        }
+
+        // ===== ページ =====
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + pageName).classList.add('active');
+
+            const navMap = { 'dashboard': 0, 'list': 1, 'approvals': 3, 'notifications': 4 };
+            if (navMap[pageName] !== undefined) {
+                document.querySelectorAll('.nav-item')[navMap[pageName]].classList.add('active');
+            }
+
+            if (pageName === 'dashboard') updateDashboard();
+            else if (pageName === 'list') renderEstimateList();
+            else if (pageName === 'approvals') renderApprovalList();
+            else if (pageName === 'notifications') renderNotifications();
+            else if (pageName === 'users') renderUserList();
+            else if (pageName === 'customers') renderCustomerList();
+        }
+
+        // ===== ダッシュボード =====
+        function updateDashboard() {
+            const myEstimates = estimates.filter(e => e.creatorId === currentUser.empId);
+            document.getElementById('stat-draft').textContent = myEstimates.filter(e => e.status === 'draft').length;
+            document.getElementById('stat-pending').textContent = myEstimates.filter(e => e.status === 'pending').length;
+            document.getElementById('stat-approved').textContent = myEstimates.filter(e => e.status === 'approved').length;
+            document.getElementById('stat-total').textContent = formatCurrency(myEstimates.reduce((s, e) => s + (e.total || 0), 0));
+
+            const tbody = document.getElementById('recent-estimates');
+            tbody.innerHTML = estimates.slice(0, 5).map(e => {
+                const creator = users.find(u => u.empId === e.creatorId);
+                return `
+                    <tr class="clickable" onclick="editEstimate(${e.id})">
+                        <td>${e.basic.projectName || '-'}</td>
+                        <td>${e.basic.customerName || '-'}</td>
+                        <td style="text-align:right;font-weight:bold;">${formatCurrency(e.total || 0)}</td>
+                        <td><span class="status-badge ${statusLabels[e.status].class}">${statusLabels[e.status].label}</span></td>
+                        <td>${creator ? creator.name : '-'}</td>
+                        <td>${e.updatedAt || ''}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateBadges() {
+            const pendingApprovals = estimates.filter(e => e.status === 'pending' && e.approverId === currentUser.empId).length;
+            const unreadNotifications = notifications.filter(n => n.userId === currentUser.empId && !n.read).length;
+
+            const approvalBadge = document.getElementById('approvalBadge');
+            const notificationBadge = document.getElementById('notificationBadge');
+
+            if (pendingApprovals > 0) {
+                approvalBadge.textContent = pendingApprovals;
+                approvalBadge.style.display = 'inline';
+            } else {
+                approvalBadge.style.display = 'none';
+            }
+
+            if (unreadNotifications > 0) {
+                notificationBadge.textContent = unreadNotifications;
+                notificationBadge.style.display = 'inline';
+            } else {
+                notificationBadge.style.display = 'none';
+            }
+        }
+
+        // ===== 見積一覧 =====
+        function renderEstimateList() {
+            let filtered = estimates;
+            if (currentFilter) filtered = estimates.filter(e => e.status === currentFilter);
+
+            const tbody = document.getElementById('all-estimates');
+            tbody.innerHTML = filtered.map(e => {
+                const creator = users.find(u => u.empId === e.creatorId);
+                const approver = users.find(u => u.empId === e.approverId);
+                return `
+                    <tr class="clickable" onclick="editEstimate(${e.id})">
+                        <td>${e.basic.projectName || '-'}</td>
+                        <td>${e.basic.customerName || '-'}</td>
+                        <td style="text-align:right;font-weight:bold;">${formatCurrency(e.total || 0)}</td>
+                        <td><span class="status-badge ${statusLabels[e.status].class}">${statusLabels[e.status].label}</span></td>
+                        <td>${creator ? creator.name : '-'}</td>
+                        <td>${approver ? approver.name : '-'}</td>
+                        <td>${e.updatedAt || ''}</td>
+                        <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();deleteEstimate(${e.id})">削除</button></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterByStatus(status) { currentFilter = status; renderEstimateList(); }
+        function filterEstimates() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const filtered = estimates.filter(e =>
+                (e.basic.projectName || '').toLowerCase().includes(q) ||
+                (e.basic.customerName || '').toLowerCase().includes(q)
+            );
+            const tbody = document.getElementById('all-estimates');
+            tbody.innerHTML = filtered.map(e => {
+                const creator = users.find(u => u.empId === e.creatorId);
+                return `<tr class="clickable" onclick="editEstimate(${e.id})">
+                    <td>${e.basic.projectName || '-'}</td><td>${e.basic.customerName || '-'}</td>
+                    <td style="text-align:right;">${formatCurrency(e.total||0)}</td>
+                    <td><span class="status-badge ${statusLabels[e.status].class}">${statusLabels[e.status].label}</span></td>
+                    <td>${creator?creator.name:'-'}</td><td>-</td><td>${e.updatedAt||''}</td><td></td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ===== 新規作成・編集 =====
+        function createNewEstimate() {
+            const newId = estimates.length > 0 ? Math.max(...estimates.map(e => e.id)) + 1 : 1;
+            const today = new Date().toISOString().split('T')[0];
+            estimates.unshift({
+                id: newId,
+                basic: { customerName: '', projectName: '', quoteDate: today, siteAddress: '', office: '', periodStart: '', periodEnd: '' },
+                status: 'draft',
+                total: 0,
+                categories: [],
+                expenses: { safetyRate: 2, overheadRate: 15, laborRate: 24 },
+                creatorId: currentUser.empId,
+                approverId: null,
+                createdAt: today,
+                updatedAt: today
+            });
+            saveToLocalStorage();
+            editEstimate(newId);
+        }
+
+        function editEstimate(id) {
+            currentEstimateId = id;
+            const e = estimates.find(x => x.id === id);
+            if (!e) return;
+
+            document.getElementById('edit-page-title').textContent = e.basic.projectName || '新規見積';
+
+            // 顧客セレクトを設定
+            populateCustomerSelect();
+            const custSel = document.getElementById('customerSelect');
+            if (e.basic.customerId) {
+                custSel.value = e.basic.customerId;
+            } else if (e.basic.customerName) {
+                // 旧データ互換: 顧客名から顧客を検索
+                const foundCust = customers.find(c => c.name === e.basic.customerName);
+                custSel.value = foundCust ? foundCust.id : '';
+            } else {
+                custSel.value = '';
+            }
+            updateCustomerInfo();
+
+            document.getElementById('quoteDate').value = e.basic.quoteDate || '';
+            document.getElementById('projectName').value = e.basic.projectName || '';
+            document.getElementById('siteAddress').value = e.basic.siteAddress || '';
+            setPeriodValue('periodStart', e.basic.periodStart || '');
+            setPeriodValue('periodEnd', e.basic.periodEnd || '');
+            document.getElementById('office').value = e.basic.office || '';
+            updateOfficeInfo();
+
+            categories = e.categories || [];
+            categoryId = categories.length > 0 ? Math.max(...categories.map(c => c.id)) : 0;
+            renderCategories();
+
+            if (e.expenses) {
+                document.getElementById('safetyRate').value = e.expenses.safetyRate || 2;
+                document.getElementById('overheadRate').value = e.expenses.overheadRate || 15;
+                document.getElementById('laborRate').value = e.expenses.laborRate || 24;
+            }
+
+            calculateExpenses();
+            updateWorkflowDisplay(e);
+            showPage('edit');
+            showEditTab('basic');
+        }
+
+        function saveCurrentEstimate() {
+            if (!currentEstimateId) return;
+            const e = estimates.find(x => x.id === currentEstimateId);
+            if (!e) return;
+
+            e.basic = {
+                customerId: parseInt(document.getElementById('customerSelect').value) || null,
+                customerName: getCustomerName(),
+                quoteDate: document.getElementById('quoteDate').value,
+                projectName: document.getElementById('projectName').value,
+                siteAddress: document.getElementById('siteAddress').value,
+                periodStart: getPeriodValue('periodStart'),
+                periodEnd: getPeriodValue('periodEnd'),
+                office: document.getElementById('office').value
+            };
+            e.categories = categories;
+            e.expenses = {
+                safetyRate: parseFloat(document.getElementById('safetyRate').value),
+                overheadRate: parseFloat(document.getElementById('overheadRate').value),
+                laborRate: parseFloat(document.getElementById('laborRate').value)
+            };
+            e.total = calculateTotalAmount();
+            e.updatedAt = new Date().toISOString().split('T')[0];
+
+            saveToLocalStorage();
+            alert('保存しました');
+            document.getElementById('edit-page-title').textContent = e.basic.projectName || '新規見積';
+        }
+
+        function deleteEstimate(id) {
+            if (confirm('この見積を削除しますか？')) {
+                estimates = estimates.filter(e => e.id !== id);
+                saveToLocalStorage();
+
+                // 編集中の見積が削除された場合は一覧に戻る
+                if (currentEstimateId === id) {
+                    currentEstimateId = null;
+                }
+
+                // 即時UI更新
+                showPage('list');
+            }
+        }
+
+        // ===== ワークフロー =====
+        function updateWorkflowDisplay(e) {
+            const creator = users.find(u => u.empId === e.creatorId);
+            const approver = users.find(u => u.empId === e.approverId);
+            const isCreator = currentUser.empId === e.creatorId;
+            const isApprover = currentUser.empId === e.approverId;
+
+            let statusHtml = '';
+            let actionsHtml = '';
+
+            if (e.status === 'draft') {
+                statusHtml = `
+                    <div class="workflow-step"><div class="circle current">1</div><span>${creator ? creator.name : '申請者'}</span></div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step"><div class="circle pending">2</div><span>承認者</span></div>
+                `;
+                if (isCreator) {
+                    actionsHtml = `<button class="btn btn-warning" onclick="openApprovalModal()">📤 承認申請</button>`;
+                }
+            } else if (e.status === 'pending') {
+                statusHtml = `
+                    <div class="workflow-step"><div class="circle done">✓</div><span>${creator ? creator.name : '申請者'}</span></div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step"><div class="circle current">2</div><span>${approver ? approver.name : '承認者'}</span></div>
+                `;
+                if (isApprover) {
+                    actionsHtml = `
+                        <button class="btn btn-success" onclick="openReviewModal('approve')">✅ 承認</button>
+                        <button class="btn btn-danger" onclick="openReviewModal('reject')">❌ 却下</button>
+                    `;
+                } else if (isCreator) {
+                    actionsHtml = `<button class="btn btn-outline" onclick="withdrawApproval()">取下げ</button>`;
+                }
+            } else if (e.status === 'approved') {
+                statusHtml = `
+                    <div class="workflow-step"><div class="circle done">✓</div><span>${creator ? creator.name : '申請者'}</span></div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step"><div class="circle done">✓</div><span>${approver ? approver.name : '承認者'}</span></div>
+                `;
+                actionsHtml = `<span style="color:#38a169;font-weight:bold;">✅ 承認済み（${e.approvedAt}）</span>`;
+            } else if (e.status === 'rejected') {
+                statusHtml = `
+                    <div class="workflow-step"><div class="circle done">✓</div><span>${creator ? creator.name : '申請者'}</span></div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step"><div class="circle rejected">✗</div><span>${approver ? approver.name : '承認者'}</span></div>
+                `;
+                actionsHtml = `<span style="color:#e53e3e;font-weight:bold;">❌ 却下されました</span>`;
+                if (isCreator) {
+                    actionsHtml += `<button class="btn btn-outline" style="margin-left:12px;" onclick="resubmit()">再申請</button>`;
+                }
+            }
+
+            document.getElementById('workflowStatus').innerHTML = statusHtml;
+            document.getElementById('workflowActions').innerHTML = actionsHtml;
+        }
+
+        function openApprovalModal() {
+            const select = document.getElementById('approverSelect');
+            select.innerHTML = users.filter(u => u.empId !== currentUser.empId).map(u =>
+                `<option value="${u.empId}">${u.name}（${u.empId}）</option>`
+            ).join('');
+            document.getElementById('approvalComment').value = '';
+            document.getElementById('approvalModal').classList.add('active');
+        }
+
+        function submitApproval() {
+            const approverId = document.getElementById('approverSelect').value;
+            const comment = document.getElementById('approvalComment').value;
+            const e = estimates.find(x => x.id === currentEstimateId);
+            if (!e) return;
+
+            e.status = 'pending';
+            e.approverId = approverId;
+            e.submittedAt = new Date().toISOString().split('T')[0];
+            e.updatedAt = e.submittedAt;
+
+            // 承認者に通知
+            const approver = users.find(u => u.empId === approverId);
+            addNotification(approverId, 'request', `${currentUser.name}さんから承認依頼`, `「${e.basic.projectName}」の承認をお願いします。`, e.id);
+
+            // メール送信シミュレーション
+            console.log(`📧 メール送信: ${approver.email} へ承認依頼通知`);
+            alert(`承認申請しました。\n\n📧 ${approver.name}さん（${approver.email}）にメール通知を送信しました。`);
+
+            saveToLocalStorage();
+            closeModal('approvalModal');
+            updateWorkflowDisplay(e);
+            updateBadges();
+        }
+
+        function openReviewModal(action) {
+            const e = estimates.find(x => x.id === currentEstimateId);
+            const title = action === 'approve' ? '承認確認' : '却下確認';
+            const message = action === 'approve'
+                ? `「${e.basic.projectName}」を承認しますか？`
+                : `「${e.basic.projectName}」を却下しますか？`;
+
+            document.getElementById('reviewModalTitle').textContent = title;
+            document.getElementById('reviewModalMessage').textContent = message;
+            document.getElementById('reviewComment').value = '';
+            document.getElementById('reviewConfirmBtn').onclick = () => processReview(action);
+            document.getElementById('reviewConfirmBtn').className = action === 'approve' ? 'btn btn-success' : 'btn btn-danger';
+            document.getElementById('reviewConfirmBtn').textContent = action === 'approve' ? '承認する' : '却下する';
+            document.getElementById('reviewModal').classList.add('active');
+        }
+
+        function processReview(action) {
+            const e = estimates.find(x => x.id === currentEstimateId);
+            if (!e) return;
+
+            const today = new Date().toISOString().split('T')[0];
+            const creator = users.find(u => u.empId === e.creatorId);
+
+            if (action === 'approve') {
+                e.status = 'approved';
+                e.approvedAt = today;
+                addNotification(e.creatorId, 'approval', '承認されました', `「${e.basic.projectName}」が${currentUser.name}さんに承認されました。`, e.id);
+                console.log(`📧 メール送信: ${creator.email} へ承認通知`);
+                alert(`承認しました。\n\n📧 ${creator.name}さん（${creator.email}）に承認通知を送信しました。`);
+            } else {
+                e.status = 'rejected';
+                e.rejectedAt = today;
+                addNotification(e.creatorId, 'reject', '却下されました', `「${e.basic.projectName}」が${currentUser.name}さんに却下されました。`, e.id);
+                console.log(`📧 メール送信: ${creator.email} へ却下通知`);
+                alert(`却下しました。\n\n📧 ${creator.name}さん（${creator.email}）に却下通知を送信しました。`);
+            }
+
+            e.updatedAt = today;
+            saveToLocalStorage();
+            closeModal('reviewModal');
+            updateWorkflowDisplay(e);
+            updateBadges();
+        }
+
+        function withdrawApproval() {
+            if (!confirm('承認申請を取り下げますか？')) return;
+            const e = estimates.find(x => x.id === currentEstimateId);
+            if (!e) return;
+
+            e.status = 'draft';
+            e.approverId = null;
+            e.updatedAt = new Date().toISOString().split('T')[0];
+            saveToLocalStorage();
+            updateWorkflowDisplay(e);
+            updateBadges();
+            alert('取り下げました');
+        }
+
+        function resubmit() {
+            const e = estimates.find(x => x.id === currentEstimateId);
+            if (!e) return;
+            e.status = 'draft';
+            e.approverId = null;
+            saveToLocalStorage();
+            updateWorkflowDisplay(e);
+        }
+
+        // ===== 承認依頼一覧 =====
+        function renderApprovalList() {
+            const pending = estimates.filter(e => e.status === 'pending' && e.approverId === currentUser.empId);
+            const tbody = document.getElementById('approval-list');
+            tbody.innerHTML = pending.map(e => {
+                const creator = users.find(u => u.empId === e.creatorId);
+                return `
+                    <tr>
+                        <td>${e.basic.projectName || '-'}</td>
+                        <td>${e.basic.customerName || '-'}</td>
+                        <td style="text-align:right;font-weight:bold;">${formatCurrency(e.total || 0)}</td>
+                        <td>${creator ? creator.name : '-'}</td>
+                        <td>${e.submittedAt || ''}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editEstimate(${e.id})">確認</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            if (pending.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718096;">承認依頼はありません</td></tr>';
+            }
+        }
+
+        // ===== 通知 =====
+        function addNotification(userId, type, title, message, estimateId) {
+            notifications.unshift({
+                id: Date.now(),
+                userId: userId,
+                type: type,
+                title: title,
+                message: message,
+                estimateId: estimateId,
+                read: false,
+                createdAt: new Date().toISOString()
+            });
+            saveToLocalStorage();
+        }
+
+        function renderNotifications() {
+            const myNotifications = notifications.filter(n => n.userId === currentUser.empId);
+            const list = document.getElementById('notification-list');
+            list.innerHTML = myNotifications.map(n => {
+                const iconClass = n.type === 'approval' ? 'approval' : n.type === 'request' ? 'request' : 'reject';
+                const icon = n.type === 'approval' ? '✅' : n.type === 'request' ? '📤' : '❌';
+                const time = new Date(n.createdAt).toLocaleString('ja-JP');
+                return `
+                    <div class="notification-item ${n.read ? '' : 'unread'}" onclick="readNotification(${n.id}, ${n.estimateId})">
+                        <div class="icon ${iconClass}">${icon}</div>
+                        <div class="content">
+                            <h5>${n.title}</h5>
+                            <p>${n.message}</p>
+                        </div>
+                        <div class="time">${time}</div>
+                    </div>
+                `;
+            }).join('');
+
+            if (myNotifications.length === 0) {
+                list.innerHTML = '<div style="padding:40px;text-align:center;color:#718096;">通知はありません</div>';
+            }
+        }
+
+        function readNotification(notifId, estimateId) {
+            const n = notifications.find(x => x.id === notifId);
+            if (n) n.read = true;
+            saveToLocalStorage();
+            updateBadges();
+            if (estimateId) editEstimate(estimateId);
+        }
+
+        function markAllRead() {
+            notifications.filter(n => n.userId === currentUser.empId).forEach(n => n.read = true);
+            saveToLocalStorage();
+            updateBadges();
+            renderNotifications();
+        }
+
+        // ===== ユーザー管理 =====
+        function renderUserList() {
+            const tbody = document.getElementById('user-list');
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.empId}</td>
+                    <td>${u.name}</td>
+                    <td>${u.email}</td>
+                    <td>${u.role === 'admin' ? '管理者' : '一般ユーザー'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="openUserModal('${u.empId}')">編集</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.empId}')">削除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openUserModal(empId = null) {
+            editingUserId = empId;
+            if (empId) {
+                const u = users.find(x => x.empId === empId);
+                document.getElementById('userModalTitle').textContent = 'ユーザー編集';
+                document.getElementById('userEmpId').value = u.empId;
+                document.getElementById('userEmpId').disabled = true;
+                document.getElementById('userName').value = u.name;
+                document.getElementById('userEmail').value = u.email;
+                document.getElementById('userRole').value = u.role;
+                document.getElementById('userPassword').value = '';
+            } else {
+                document.getElementById('userModalTitle').textContent = 'ユーザー追加';
+                document.getElementById('userEmpId').value = '';
+                document.getElementById('userEmpId').disabled = false;
+                document.getElementById('userName').value = '';
+                document.getElementById('userEmail').value = '';
+                document.getElementById('userRole').value = 'user';
+                document.getElementById('userPassword').value = '0001';
+            }
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        function saveUser() {
+            const empId = document.getElementById('userEmpId').value;
+            const name = document.getElementById('userName').value;
+            const email = document.getElementById('userEmail').value;
+            const role = document.getElementById('userRole').value;
+            const password = document.getElementById('userPassword').value;
+
+            if (!empId || !name || !email) {
+                alert('必須項目を入力してください');
+                return;
+            }
+
+            if (editingUserId) {
+                const u = users.find(x => x.empId === editingUserId);
+                u.name = name;
+                u.email = email;
+                u.role = role;
+                if (password) u.password = password;
+            } else {
+                if (users.find(u => u.empId === empId)) {
+                    alert('この社員番号は既に使用されています');
+                    return;
+                }
+                users.push({ empId, name, email, role, password: password || '0001' });
+            }
+
+            saveToLocalStorage();
+            closeModal('userModal');
+            renderUserList();
+            alert('保存しました');
+        }
+
+        function deleteUser(empId) {
+            if (empId === currentUser.empId) {
+                alert('自分自身は削除できません');
+                return;
+            }
+            if (confirm('このユーザーを削除しますか？')) {
+                users = users.filter(u => u.empId !== empId);
+                saveToLocalStorage();
+                renderUserList();
+            }
+        }
+
+        // ===== タブ・フォーム =====
+        function showEditTab(tabName) {
+            document.querySelectorAll('#page-edit .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#page-edit .tab-panel').forEach(p => p.classList.remove('active'));
+            const tabs = ['basic', 'cost', 'expense', 'output'];
+            document.querySelectorAll('#page-edit .tab')[tabs.indexOf(tabName)].classList.add('active');
+            document.getElementById('edit-' + tabName).classList.add('active');
+            if (tabName === 'expense' || tabName === 'output') { calculateExpenses(); updatePreview(); }
+            updateStepGuide(tabName);
+        }
+
+        function updateOfficeInfo() {
+            const office = document.getElementById('office').value;
+            const info = officeData[office];
+            document.getElementById('officeInfo').innerHTML = info ? `〒${info.zip} ${info.address}<br>TEL: ${info.tel}` : '-';
+        }
+
+        // ===== 原価入力 =====
+        function addCategory(name = '') {
+            categoryId++;
+            categories.push({ id: categoryId, name: name || `工事項目${categoryId}`, items: [
+                { no: 1, name: '', spec: '', qty: '', unit: '', price: '', note: '' },
+                { no: 2, name: '', spec: '', qty: '', unit: '', price: '', note: '' },
+                { no: 3, name: '', spec: '', qty: '', unit: '', price: '', note: '' }
+            ]});
+            renderCategories();
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('costCategories');
+            container.innerHTML = categories.map((cat, idx) => {
+                const subtotal = cat.items.reduce((s, i) => s + ((parseFloat(i.qty)||0)*(parseFloat(i.price)||0)), 0);
+                return `
+                    <div class="category-header" onclick="toggleCategory(${cat.id})">
+                        <h4><span>▼</span> ${idx+1}) <input type="text" value="${cat.name}" onclick="event.stopPropagation()" onchange="updateCategoryName(${cat.id},this.value)" style="background:transparent;border:none;color:white;font-size:14px;font-weight:bold;width:160px;"></h4>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="font-weight:bold;">${formatCurrency(subtotal)}</span>
+                            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteCategory(${cat.id})">削除</button>
+                        </div>
+                    </div>
+                    <div class="category-content" id="content-${cat.id}">
+                        <table class="spreadsheet">
+                            <thead><tr><th style="width:40px;">No</th><th style="width:160px;">名称</th><th style="width:100px;">品種・寸法</th><th style="width:60px;">数量</th><th style="width:50px;">単位</th><th style="width:80px;">単価</th><th style="width:90px;">金額</th><th>備考</th></tr></thead>
+                            <tbody>
+                                ${cat.items.map((item, i) => `
+                                    <tr>
+                                        <td class="col-no">${item.no}</td>
+                                        <td><input type="text" value="${item.name}" onchange="updateItem(${cat.id},${i},'name',this.value)"></td>
+                                        <td><input type="text" value="${item.spec}" onchange="updateItem(${cat.id},${i},'spec',this.value)"></td>
+                                        <td><input type="number" value="${item.qty}" onchange="updateItem(${cat.id},${i},'qty',this.value)"></td>
+                                        <td><input type="text" value="${item.unit}" onchange="updateItem(${cat.id},${i},'unit',this.value)" style="text-align:center;"></td>
+                                        <td><input type="number" value="${item.price}" onchange="updateItem(${cat.id},${i},'price',this.value)"></td>
+                                        <td class="col-amount"><input type="text" value="${formatNumber((parseFloat(item.qty)||0)*(parseFloat(item.price)||0))}" readonly></td>
+                                        <td><input type="text" value="${item.note}" onchange="updateItem(${cat.id},${i},'note',this.value)"></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        <div style="padding:8px 16px;background:#f7fafc;">
+                            <button class="btn btn-sm btn-outline" onclick="addRow(${cat.id})">➕ 行追加</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            updateCostSummary();
+        }
+
+        function toggleCategory(id) { document.getElementById('content-'+id).classList.toggle('collapsed'); }
+        function updateCategoryName(id, name) { const c = categories.find(x=>x.id===id); if(c) c.name=name; }
+        function deleteCategory(id) { categories = categories.filter(c=>c.id!==id); renderCategories(); }
+        function addRow(catId) { const c = categories.find(x=>x.id===catId); if(c) { c.items.push({no:c.items.length+1,name:'',spec:'',qty:'',unit:'',price:'',note:''}); renderCategories(); }}
+        function updateItem(catId,idx,field,val) { const c=categories.find(x=>x.id===catId); if(c&&c.items[idx]){c.items[idx][field]=val; renderCategories();}}
+        function updateCostSummary() {
+            const total = categories.reduce((s,c) => s + c.items.reduce((ss,i) => ss+((parseFloat(i.qty)||0)*(parseFloat(i.price)||0)),0),0);
+            document.getElementById('totalDirectCost').textContent = formatCurrency(total);
+            document.getElementById('categoryCount').textContent = categories.length;
+            document.getElementById('itemCount').textContent = categories.reduce((s,c)=>s+c.items.filter(i=>i.name).length,0);
+        }
+
+        // ===== 経費計算 =====
+        function calculateExpenses() {
+            const dc = categories.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+((parseFloat(i.qty)||0)*(parseFloat(i.price)||0)),0),0);
+            const sr = parseFloat(document.getElementById('safetyRate').value)/100||0;
+            const or = parseFloat(document.getElementById('overheadRate').value)/100||0;
+            const lr = parseFloat(document.getElementById('laborRate').value)/100||0;
+            const safety = dc*sr, overhead = dc*or;
+            const temp = dc+safety+overhead;
+            const ins = temp*0.24*15/1000, welfare = temp*lr*0.161;
+            const total = dc+safety+overhead+ins+welfare;
+            document.getElementById('expDirectCost').textContent = formatCurrency(dc);
+            document.getElementById('expSafety').textContent = formatCurrency(safety);
+            document.getElementById('expOverhead').textContent = formatCurrency(overhead);
+            document.getElementById('expInsurance').textContent = formatCurrency(ins);
+            document.getElementById('expWelfare').textContent = formatCurrency(welfare);
+            document.getElementById('expTotal').textContent = formatCurrency(total);
+            return total;
+        }
+        function calculateTotalAmount() { return calculateExpenses(); }
+
+        // ===== プレビュー =====
+        function updatePreview() {
+            document.getElementById('previewDate').textContent = document.getElementById('quoteDate').value || '';
+            document.getElementById('previewCustomer').textContent = getCustomerName() || '（顧客名）';
+            document.getElementById('previewAmount').textContent = formatCurrency(calculateExpenses());
+            document.getElementById('previewProject').textContent = document.getElementById('projectName').value || '';
+            document.getElementById('previewSite').textContent = document.getElementById('siteAddress').value || '';
+            const s = getPeriodValue('periodStart'), e = getPeriodValue('periodEnd');
+            document.getElementById('previewPeriod').textContent = s&&e ? `${s} ～ ${e}` : '';
+            document.getElementById('previewOffice').textContent = document.getElementById('office').value || '';
+        }
+
+        // ===== サンプルデータ =====
+        function loadSampleData() {
+            categories = [
+                { id: 1, name: '仮設工事', items: [{no:1,name:'仮囲い設置',spec:'H=3m',qty:150,unit:'m',price:3000,note:''},{no:2,name:'仮設電気',spec:'',qty:1,unit:'式',price:200000,note:''},{no:3,name:'仮設水道',spec:'',qty:1,unit:'式',price:150000,note:''}]},
+                { id: 2, name: '解体工事', items: [{no:1,name:'建屋解体',spec:'鉄骨造',qty:500,unit:'㎡',price:8000,note:''},{no:2,name:'基礎解体',spec:'RC',qty:200,unit:'㎥',price:12000,note:''},{no:3,name:'配管撤去',spec:'φ100〜300',qty:500,unit:'m',price:4000,note:''}]},
+                { id: 3, name: '産廃処理', items: [{no:1,name:'コンクリートガラ',spec:'',qty:300,unit:'t',price:5000,note:''},{no:2,name:'金属くず',spec:'',qty:50,unit:'t',price:-10000,note:'有価物'},{no:3,name:'混合廃棄物',spec:'',qty:100,unit:'t',price:25000,note:''}]}
+            ];
+            categoryId = 3;
+            renderCategories();
+            calculateExpenses();
+        }
+
+        // ===== 設定 =====
+        function changePassword() {
+            const newPw = document.getElementById('newPassword').value;
+            if (!newPw) { alert('パスワードを入力してください'); return; }
+            const u = users.find(x => x.empId === currentUser.empId);
+            if (u) { u.password = newPw; currentUser.password = newPw; saveToLocalStorage(); alert('パスワードを変更しました'); }
+        }
+        function exportAllData() {
+            const data = { users, estimates, notifications, customers };
+            const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `besterra_backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
+        }
+        function importAllData() {
+            const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+            input.onchange = e => {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        if (data.users) users = data.users;
+                        if (data.estimates) estimates = data.estimates;
+                        if (data.notifications) notifications = data.notifications;
+                        if (data.customers) customers = data.customers;
+                        saveToLocalStorage(); alert('インポートしました'); location.reload();
+                    } catch(err) { alert('エラー: ' + err.message); }
+                };
+                reader.readAsText(e.target.files[0]);
+            };
+            input.click();
+        }
+        function clearAllData() {
+            if (confirm('全データを削除しますか？')) {
+                localStorage.clear(); location.reload();
+            }
+        }
+        function exportCSV() {
+            let csv = '\uFEFF';
+            csv += `顧客名,${getCustomerName()}\n`;
+            csv += `工事名,${document.getElementById('projectName').value}\n\n`;
+            csv += 'No,中項目,名称,数量,単位,単価,金額\n';
+            categories.forEach(c => c.items.forEach(i => { if(i.name) csv += `${i.no},${c.name},${i.name},${i.qty},${i.unit},${i.price},${(parseFloat(i.qty)||0)*(parseFloat(i.price)||0)}\n`; }));
+            const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `見積_${document.getElementById('projectName').value||'新規'}.csv`; a.click();
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function formatCurrency(n) { return '¥' + Math.round(n||0).toLocaleString(); }
+        function formatNumber(n) { return n ? Math.round(n).toLocaleString() : ''; }
+
+        // ===== ヘルプパネル =====
+        function toggleHelp() {
+            document.getElementById('helpPanel').classList.toggle('active');
+            document.getElementById('helpOverlay').classList.toggle('active');
+        }
+
+        // ===== 期間セレクト =====
+        function initPeriodSelects() {
+            const currentYear = new Date().getFullYear();
+            const years = [];
+            for (let y = currentYear - 1; y <= currentYear + 5; y++) years.push(y);
+
+            ['periodStartYear', 'periodEndYear'].forEach(id => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '<option value="">--</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+            });
+
+            ['periodStartMonth', 'periodEndMonth'].forEach(id => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '<option value="">--</option>' + Array.from({length:12}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('');
+            });
+
+            ['periodStartDay', 'periodEndDay'].forEach(id => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '<option value="">--</option>' + Array.from({length:31}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('');
+            });
+        }
+
+        function getPeriodValue(prefix) {
+            const y = document.getElementById(prefix + 'Year').value;
+            const m = document.getElementById(prefix + 'Month').value;
+            const d = document.getElementById(prefix + 'Day').value;
+            if (!y || !m || !d) return '';
+            return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        }
+
+        function setPeriodValue(prefix, dateStr) {
+            if (!dateStr) {
+                document.getElementById(prefix + 'Year').value = '';
+                document.getElementById(prefix + 'Month').value = '';
+                document.getElementById(prefix + 'Day').value = '';
+                return;
+            }
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                document.getElementById(prefix + 'Year').value = parseInt(parts[0]);
+                document.getElementById(prefix + 'Month').value = parseInt(parts[1]);
+                document.getElementById(prefix + 'Day').value = parseInt(parts[2]);
+            }
+        }
+
+        function updatePeriodPreview() {
+            // 期間プレビュー更新（保存時に使用）
+        }
+
+        // ===== ステップガイド =====
+        const stepGuideData = {
+            'basic': {
+                description: 'まず、顧客先名と工事名を入力してください。工事期間も設定しましょう。',
+                nextTitle: '次のステップ',
+                nextDesc: '必須項目（*）を入力したら「2. 原価入力」タブへ進みましょう',
+                dots: [1, 0, 0, 0]
+            },
+            'cost': {
+                description: '工事の原価を入力します。「中項目追加」で項目を作成し、明細を入力してください。',
+                nextTitle: '入力のコツ',
+                nextDesc: '「サンプル読込」で入力例を確認できます。数量×単価は自動計算されます',
+                dots: [2, 1, 0, 0]
+            },
+            'expense': {
+                description: '経費の率を確認・調整してください。直接工事費から自動計算されます。',
+                nextTitle: '確認ポイント',
+                nextDesc: '率を変更すると自動で再計算されます。問題なければ「4. 確認・出力」へ',
+                dots: [2, 2, 1, 0]
+            },
+            'output': {
+                description: '見積内容を確認してください。問題なければ保存して承認申請できます。',
+                nextTitle: '最終ステップ',
+                nextDesc: '「保存」で下書き保存、ワークフロー欄から「承認申請」ができます',
+                dots: [2, 2, 2, 1]
+            }
+        };
+
+        function updateStepGuide(tabName) {
+            const data = stepGuideData[tabName];
+            if (!data) return;
+
+            document.getElementById('stepDescription').textContent = data.description;
+            document.getElementById('nextActionTitle').textContent = data.nextTitle;
+            document.getElementById('nextActionDesc').textContent = data.nextDesc;
+
+            data.dots.forEach((state, i) => {
+                const dot = document.getElementById('dot' + (i + 1));
+                dot.className = 'step-dot';
+                if (state === 1) dot.classList.add('active');
+                else if (state === 2) dot.classList.add('done');
+            });
+        }
+
+        // ===== 顧客管理 =====
+        function renderCustomerList() {
+            const tbody = document.getElementById('customer-list');
+            tbody.innerHTML = customers.map(c => `
+                <tr>
+                    <td>${c.code}</td>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.address || '-'}</td>
+                    <td>${c.tel || '-'}</td>
+                    <td>${c.contact || '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" onclick="openCustomerModal(${c.id})">編集</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${c.id})">削除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openCustomerModal(customerId = null) {
+            editingCustomerId = customerId;
+            if (customerId) {
+                const c = customers.find(x => x.id === customerId);
+                document.getElementById('customerModalTitle').textContent = '顧客編集';
+                document.getElementById('custCode').value = c.code || '';
+                document.getElementById('custCode').disabled = true;
+                document.getElementById('custName').value = c.name || '';
+                document.getElementById('custKana').value = c.kana || '';
+                document.getElementById('custZip').value = c.zip || '';
+                document.getElementById('custAddress').value = c.address || '';
+                document.getElementById('custTel').value = c.tel || '';
+                document.getElementById('custEmail').value = c.email || '';
+                document.getElementById('custContact').value = c.contact || '';
+            } else {
+                document.getElementById('customerModalTitle').textContent = '顧客追加';
+                document.getElementById('custCode').value = '';
+                document.getElementById('custCode').disabled = false;
+                document.getElementById('custName').value = '';
+                document.getElementById('custKana').value = '';
+                document.getElementById('custZip').value = '';
+                document.getElementById('custAddress').value = '';
+                document.getElementById('custTel').value = '';
+                document.getElementById('custEmail').value = '';
+                document.getElementById('custContact').value = '';
+            }
+            document.getElementById('customerModal').classList.add('active');
+        }
+
+        function saveCustomer() {
+            const code = document.getElementById('custCode').value.trim();
+            const name = document.getElementById('custName').value.trim();
+
+            if (!code || !name) {
+                alert('顧客コードと顧客名は必須です');
+                return;
+            }
+
+            if (editingCustomerId) {
+                const c = customers.find(x => x.id === editingCustomerId);
+                c.name = name;
+                c.kana = document.getElementById('custKana').value.trim();
+                c.zip = document.getElementById('custZip').value.trim();
+                c.address = document.getElementById('custAddress').value.trim();
+                c.tel = document.getElementById('custTel').value.trim();
+                c.email = document.getElementById('custEmail').value.trim();
+                c.contact = document.getElementById('custContact').value.trim();
+            } else {
+                if (customers.find(c => c.code === code)) {
+                    alert('この顧客コードは既に使用されています');
+                    return;
+                }
+                const newId = customers.length > 0 ? Math.max(...customers.map(c => c.id)) + 1 : 1;
+                customers.push({
+                    id: newId,
+                    code: code,
+                    name: name,
+                    kana: document.getElementById('custKana').value.trim(),
+                    zip: document.getElementById('custZip').value.trim(),
+                    address: document.getElementById('custAddress').value.trim(),
+                    tel: document.getElementById('custTel').value.trim(),
+                    email: document.getElementById('custEmail').value.trim(),
+                    contact: document.getElementById('custContact').value.trim()
+                });
+            }
+
+            saveToLocalStorage();
+            closeModal('customerModal');
+            renderCustomerList();
+            alert('保存しました');
+        }
+
+        function deleteCustomer(customerId) {
+            if (confirm('この顧客を削除しますか？')) {
+                customers = customers.filter(c => c.id !== customerId);
+                saveToLocalStorage();
+                // 即時UI更新
+                renderCustomerList();
+            }
+        }
+
+        function populateCustomerSelect() {
+            const sel = document.getElementById('customerSelect');
+            sel.innerHTML = '<option value="">選択してください</option>' +
+                customers.map(c => `<option value="${c.id}">${c.name}（${c.code}）</option>`).join('');
+        }
+
+        function updateCustomerInfo() {
+            const customerId = parseInt(document.getElementById('customerSelect').value);
+            const info = document.getElementById('customerInfo');
+            if (!customerId) {
+                info.innerHTML = '-';
+                return;
+            }
+            const c = customers.find(x => x.id === customerId);
+            if (c) {
+                info.innerHTML = `〒${c.zip || '-'}<br>${c.address || '-'}<br>TEL: ${c.tel || '-'}<br>担当: ${c.contact || '-'}`;
+            } else {
+                info.innerHTML = '-';
+            }
+        }
+
+        function getCustomerName() {
+            const customerId = parseInt(document.getElementById('customerSelect').value);
+            const c = customers.find(x => x.id === customerId);
+            return c ? c.name : '';
+        }
+    </script>
+</body>
+</html>
