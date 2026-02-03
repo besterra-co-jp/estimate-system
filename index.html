@@ -1877,7 +1877,7 @@
         function openUserModal(empId = null) {
             editingUserId = empId;
             if (empId) {
-                const u = users.find(x => x.empId === empId);
+                const u = users.find(x => x.emp_id === empId);
                 document.getElementById('userModalTitle').textContent = 'ユーザー編集';
                 document.getElementById('userEmpId').value = u.emp_id;
                 document.getElementById('userEmpId').disabled = true;
@@ -1897,7 +1897,7 @@
             document.getElementById('userModal').classList.add('active');
         }
 
-        function saveUser() {
+        async function saveUser() {
             const empId = document.getElementById('userEmpId').value;
             const name = document.getElementById('userName').value;
             const email = document.getElementById('userEmail').value;
@@ -1909,35 +1909,71 @@
                 return;
             }
 
-            if (editingUserId) {
-                const u = users.find(x => x.empId === editingUserId);
-                u.name = name;
-                u.email = email;
-                u.role = role;
-                if (password) u.password = password;
-            } else {
-                if (users.find(u => u.emp_id === empId)) {
-                    alert('この社員番号は既に使用されています');
-                    return;
-                }
-                users.push({ empId, name, email, role, password: password || '0001' });
-            }
+            try {
+                if (editingUserId) {
+                    // 編集モード: Supabaseを更新
+                    const updateData = { name, email, role, updated_at: new Date().toISOString() };
+                    if (password) updateData.password = password;
 
-            saveToLocalStorage();
-            closeModal('userModal');
-            renderUserList();
-            alert('保存しました');
+                    const { error } = await db.from('users').update(updateData).eq('emp_id', editingUserId);
+                    if (error) throw error;
+
+                    // ローカル配列も更新
+                    const u = users.find(x => x.emp_id === editingUserId);
+                    if (u) {
+                        u.name = name;
+                        u.email = email;
+                        u.role = role;
+                        if (password) u.password = password;
+                    }
+                } else {
+                    // 新規追加モード
+                    if (users.find(u => u.emp_id === empId)) {
+                        alert('この社員番号は既に使用されています');
+                        return;
+                    }
+
+                    // Supabaseに挿入
+                    const { data, error } = await db.from('users').insert({
+                        emp_id: empId,
+                        name: name,
+                        email: email,
+                        role: role,
+                        password: password || '0001'
+                    }).select();
+
+                    if (error) throw error;
+
+                    // ローカル配列にも追加
+                    users.push(data[0]);
+                }
+
+                closeModal('userModal');
+                renderUserList();
+                alert('保存しました');
+            } catch (error) {
+                console.error('ユーザー保存エラー:', error);
+                alert('保存に失敗しました: ' + error.message);
+            }
         }
 
-        function deleteUser(empId) {
-            if (empId === currentUser.empId) {
+        async function deleteUser(empId) {
+            if (empId === currentUser.emp_id) {
                 alert('自分自身は削除できません');
                 return;
             }
             if (confirm('このユーザーを削除しますか？')) {
-                users = users.filter(u => u.emp_id !== empId);
-                saveToLocalStorage();
-                renderUserList();
+                try {
+                    const { error } = await db.from('users').delete().eq('emp_id', empId);
+                    if (error) throw error;
+
+                    users = users.filter(u => u.emp_id !== empId);
+                    renderUserList();
+                    alert('削除しました');
+                } catch (error) {
+                    console.error('ユーザー削除エラー:', error);
+                    alert('削除に失敗しました: ' + error.message);
+                }
             }
         }
 
